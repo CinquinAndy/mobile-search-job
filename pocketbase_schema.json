@@ -299,10 +299,30 @@
       },
       {
         "hidden": false,
+        "id": "select_direction",
+        "maxSelect": 1,
+        "name": "direction",
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "select",
+        "values": ["outbound", "inbound"]
+      },
+      {
+        "hidden": false,
         "id": "email3632233996",
         "name": "recipient",
         "presentable": false,
-        "required": true,
+        "required": false,
+        "system": false,
+        "type": "email"
+      },
+      {
+        "hidden": false,
+        "id": "email_sender",
+        "name": "sender",
+        "presentable": false,
+        "required": false,
         "system": false,
         "type": "email"
       },
@@ -359,6 +379,19 @@
         "type": "relation"
       },
       {
+        "cascadeDelete": false,
+        "collectionId": "pbc_companies",
+        "hidden": false,
+        "id": "relation_company",
+        "maxSelect": 1,
+        "minSelect": 0,
+        "name": "company",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "relation"
+      },
+      {
         "hidden": false,
         "id": "json2386159631",
         "maxSize": 0,
@@ -405,5 +438,176 @@
     "indexes": [
       "CREATE UNIQUE INDEX `idx_email_logs_external` ON `email_logs` (`external_id`, `provider`)"
     ]
+  },
+  {
+    "id": "pbc_responses",
+    "name": "responses",
+    "type": "base",
+    "system": false,
+    "listRule": "user = @request.auth.id",
+    "viewRule": "user = @request.auth.id",
+    "createRule": "@request.auth.id != \"\"",
+    "updateRule": "user = @request.auth.id",
+    "deleteRule": "user = @request.auth.id",
+    "fields": [
+      {
+        "autogeneratePattern": "[a-z0-9]{15}",
+        "hidden": false,
+        "id": "text3208210256",
+        "max": 15,
+        "min": 15,
+        "name": "id",
+        "pattern": "^[a-z0-9]+$",
+        "presentable": false,
+        "primaryKey": true,
+        "required": true,
+        "system": true,
+        "type": "text"
+      },
+      {
+        "cascadeDelete": false,
+        "collectionId": "pbc_applications",
+        "hidden": false,
+        "id": "relation_application",
+        "maxSelect": 1,
+        "minSelect": 0,
+        "name": "application",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "relation"
+      },
+      {
+        "cascadeDelete": false,
+        "collectionId": "pbc_companies",
+        "hidden": false,
+        "id": "relation_company",
+        "maxSelect": 1,
+        "minSelect": 0,
+        "name": "company",
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "relation"
+      },
+      {
+        "cascadeDelete": false,
+        "collectionId": "pbc_email_logs",
+        "hidden": false,
+        "id": "relation_email_log",
+        "maxSelect": 1,
+        "minSelect": 0,
+        "name": "email_log",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "relation"
+      },
+      {
+        "hidden": false,
+        "id": "select_type",
+        "maxSelect": 1,
+        "name": "type",
+        "presentable": true,
+        "required": true,
+        "system": false,
+        "type": "select",
+        "values": ["positive", "negative", "interview", "offer", "info", "other"]
+      },
+      {
+        "hidden": false,
+        "id": "email_sender",
+        "name": "sender_email",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "email"
+      },
+      {
+        "autogeneratePattern": "",
+        "hidden": false,
+        "id": "text_subject",
+        "max": 0,
+        "min": 0,
+        "name": "subject",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "convertURLs": false,
+        "hidden": false,
+        "id": "editor_content",
+        "maxSize": 0,
+        "name": "content",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "editor"
+      },
+      {
+        "hidden": false,
+        "id": "date_received",
+        "max": "",
+        "min": "",
+        "name": "received_at",
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "date"
+      },
+      {
+        "autogeneratePattern": "",
+        "hidden": false,
+        "id": "text_notes",
+        "max": 0,
+        "min": 0,
+        "name": "notes",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "cascadeDelete": false,
+        "collectionId": "_pb_users_auth_",
+        "hidden": false,
+        "id": "relation_user",
+        "maxSelect": 1,
+        "minSelect": 0,
+        "name": "user",
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "relation"
+      },
+      {
+        "hidden": false,
+        "id": "autodate2990389176",
+        "name": "created",
+        "onCreate": true,
+        "onUpdate": false,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      },
+      {
+        "hidden": false,
+        "id": "autodate3332085495",
+        "name": "updated",
+        "onCreate": true,
+        "onUpdate": true,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      }
+    ],
+    "indexes": []
   }
 ]
+

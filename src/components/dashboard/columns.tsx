@@ -95,10 +95,17 @@ export const columns: ColumnDef<JobApplication>[] = [
     },
   },
   {
-    accessorKey: "sentAt",
-    header: "Sent",
+    accessorKey: "lastActivityAt",
+    header: "Last Activity",
     cell: ({ row }) => {
-      const date = new Date(row.getValue("sentAt"));
+      const dateValue = row.getValue("lastActivityAt") as string;
+      if (!dateValue) {
+        return <span className="text-xs text-muted-foreground">—</span>;
+      }
+      const date = new Date(dateValue);
+      if (Number.isNaN(date.getTime())) {
+        return <span className="text-xs text-muted-foreground">—</span>;
+      }
       return (
         <span className="text-xs text-muted-foreground whitespace-nowrap">
           {formatDistanceToNow(date, { addSuffix: true })}

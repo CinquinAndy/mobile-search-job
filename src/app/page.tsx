@@ -33,9 +33,14 @@ export default function Home() {
   }, [loadData]);
 
   const handleSync = async () => {
+    if (!user?.id) {
+      alert("You must be logged in to sync");
+      return;
+    }
+
     setIsSyncing(true);
     try {
-      const result = await syncApplicationsAction();
+      const result = await syncApplicationsAction(user.id);
       if (result.success) {
         await loadData();
       } else {
@@ -154,7 +159,8 @@ export default function Home() {
             <DataTable
               columns={columns}
               data={applications}
-              searchPlaceholder="Filter by company..."
+              searchPlaceholder="Search applications..."
+              statusOptions={["sent", "delivered", "opened", "clicked", "responded", "bounced", "rejected", "interview", "offer"]}
             />
           )}
         </div>
