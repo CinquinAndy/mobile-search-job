@@ -1,18 +1,38 @@
 import type { JobApplication } from '@/types/application'
 import { getClientPB } from './pocketbase.client'
 
+interface CompanyRecord {
+	id: string
+	name: string
+	domain: string
+	website?: string
+}
+
+interface ApplicationRecord {
+	id: string
+	position: string
+	status: JobApplication['status']
+	created: string
+	updated: string
+	last_activity_at?: string
+	followUpCount?: number
+	expand?: {
+		company?: CompanyRecord
+	}
+}
+
 export const applicationsService = {
 	async getApplications(): Promise<JobApplication[]> {
 		const pb = getClientPB()
 		// No fallback here, real data only
-		const records = await pb.collection('applications').getFullList({
+		const records = await pb.collection('applications').getFullList<ApplicationRecord>({
 			sort: '-created',
 			expand: 'company',
 		})
 
 		return records.map(record => ({
 			id: record.id,
-			company: (record.expand?.company as any)?.name || 'Unknown',
+			company: record.expand?.company?.name || 'Unknown',
 			position: record.position,
 			status: record.status,
 			sentAt: record.created,
@@ -24,12 +44,12 @@ export const applicationsService = {
 	async getApplication(id: string): Promise<JobApplication | null> {
 		const pb = getClientPB()
 		try {
-			const record = await pb.collection('applications').getOne(id, {
+			const record = await pb.collection('applications').getOne<ApplicationRecord>(id, {
 				expand: 'company',
 			})
 			return {
 				id: record.id,
-				company: (record.expand?.company as any)?.name || 'Unknown',
+				company: record.expand?.company?.name || 'Unknown',
 				position: record.position,
 				status: record.status,
 				sentAt: record.created,

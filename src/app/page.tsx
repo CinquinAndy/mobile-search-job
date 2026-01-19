@@ -4,6 +4,7 @@ import { CheckCircle, Clock, LogOut, Plus, Send, XCircle } from "lucide-react";
 import * as React from "react";
 import { syncApplicationsAction } from "@/app/actions/sync";
 import { columns } from "@/components/dashboard/columns";
+import { NewApplicationForm } from "@/components/dashboard/new-application-form";
 import { DataTable } from "@/components/ui/data-table";
 import { cn } from "@/lib/utils";
 import { applicationsService } from "@/services/applications.service";
@@ -15,6 +16,7 @@ export default function Home() {
   const [applications, setApplications] = React.useState<JobApplication[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSyncing, setIsSyncing] = React.useState(false);
+  const [isAddingApplication, setIsAddingApplication] = React.useState(false);
 
   const loadData = React.useCallback(async () => {
     setIsLoading(true);
@@ -83,6 +85,7 @@ export default function Home() {
         </div>
         <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={handleSync}
             disabled={isSyncing}
             className="p-2.5 rounded-xl bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors border border-border disabled:opacity-50"
@@ -91,12 +94,15 @@ export default function Home() {
             <Clock className={cn("w-5 h-5", isSyncing && "animate-spin")} />
           </button>
           <button
+            type="button"
+            onClick={() => setIsAddingApplication(true)}
             className="p-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
             title="New Application"
           >
             <Plus className="w-5 h-5" />
           </button>
           <button
+            type="button"
             onClick={() => logout()}
             className="p-2.5 rounded-xl bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors border border-border"
             aria-label="Logout"
@@ -153,6 +159,21 @@ export default function Home() {
           )}
         </div>
       </main>
+
+      {/* New Application Modal */}
+      {isAddingApplication && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-lg animate-in zoom-in-95 duration-200">
+            <NewApplicationForm
+              onSuccess={() => {
+                setIsAddingApplication(false);
+                loadData();
+              }}
+              onCancel={() => setIsAddingApplication(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

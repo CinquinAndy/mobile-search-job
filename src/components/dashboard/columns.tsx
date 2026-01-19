@@ -2,6 +2,8 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import { formatDistanceToNow } from "date-fns";
+import { ArrowUpDown } from "lucide-react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type { JobApplication } from "@/types/application";
 
@@ -45,16 +47,29 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
 export const columns: ColumnDef<JobApplication>[] = [
   {
     accessorKey: "company",
-    header: "Company",
+    header: ({ column }) => (
+      <button
+        type="button"
+        className="flex items-center gap-1 hover:text-foreground transition-colors uppercase text-[10px] font-bold tracking-wider"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+      >
+        Company
+        <ArrowUpDown className="h-3 w-3" />
+      </button>
+    ),
     cell: ({ row }) => {
-      const { company, position } = row.original;
+      const { company, position, id } = row.original;
       return (
-        <div className="flex flex-col">
-          <span className="font-semibold text-foreground">{company}</span>
+        <Link href={`/applications/${id}`} className="flex flex-col group py-1">
+          <span className="font-bold text-foreground group-hover:text-primary transition-colors">
+            {company}
+          </span>
           {position && (
-            <span className="text-xs text-muted-foreground">{position}</span>
+            <span className="text-[10px] text-muted-foreground group-hover:text-muted-foreground/80">
+              {position}
+            </span>
           )}
-        </div>
+        </Link>
       );
     },
   },
@@ -93,10 +108,14 @@ export const columns: ColumnDef<JobApplication>[] = [
   },
   {
     accessorKey: "followUpCount",
-    header: "Follow-ups",
+    header: "F-ups",
     cell: ({ row }) => {
       const count = row.getValue("followUpCount") as number;
-      return <span className="text-xs font-mono">{count}</span>;
+      return (
+        <span className="text-xs font-mono font-bold text-muted-foreground">
+          {count}
+        </span>
+      );
     },
   },
 ];
