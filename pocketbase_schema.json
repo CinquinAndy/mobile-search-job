@@ -190,7 +190,9 @@
           "delivery_delayed",
           "queued",
           "scheduled",
-          "suppressed"
+          "suppressed",
+          "rejected_later",
+          "rejected_after_interview"
         ]
       },
       {
@@ -241,6 +243,40 @@
         "required": false,
         "system": false,
         "type": "text"
+      },
+      {
+        "hidden": false,
+        "id": "date_first_contact",
+        "max": "",
+        "min": "",
+        "name": "first_contact_at",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "date"
+      },
+      {
+        "hidden": false,
+        "id": "date_last_follow_up",
+        "max": "",
+        "min": "",
+        "name": "last_follow_up_at",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "date"
+      },
+      {
+        "hidden": false,
+        "id": "number_follow_up_count",
+        "max": null,
+        "min": 0,
+        "name": "follow_up_count",
+        "onlyInt": true,
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "number"
       },
       {
         "hidden": false,

@@ -7,6 +7,8 @@ import {
   Clock,
   Eye,
   Ghost,
+  LayoutGrid,
+  List,
   LogOut,
   MousePointer2,
   PhoneIncoming,
@@ -17,6 +19,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { syncApplicationsAction } from "@/app/actions/sync";
 import { columns } from "@/components/dashboard/columns";
+import { KanbanBoard } from "@/components/dashboard/kanban-board";
 import { NewApplicationForm } from "@/components/dashboard/new-application-form";
 import { DataTable } from "@/components/ui/data-table";
 import { cn } from "@/lib/utils";
@@ -31,6 +34,7 @@ export default function Home() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isAddingApplication, setIsAddingApplication] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [view, setView] = useState<"list" | "board">("board");
 
   useEffect(() => {
     setMounted(true);
@@ -88,8 +92,9 @@ export default function Home() {
     const clicked = applications.filter((a) => a.status === "clicked").length;
     const clickRate = ((clicked / total) * 100).toFixed(1);
 
-    const interviews = applications.filter((a) => a.status === "interview")
-      .length;
+    const interviews = applications.filter(
+      (a) => a.status === "interview",
+    ).length;
     const offers = applications.filter((a) => a.status === "offer").length;
 
     const healthIssues = applications.filter((a) =>
@@ -109,30 +114,84 @@ export default function Home() {
       {
         title: "Pipeline",
         stats: [
-          { label: "Total Apps", value: total, icon: Send, color: "text-blue-500", bg: "bg-blue-500/10" },
-          { label: "Responses", value: responded, icon: TrendingUp, color: "text-emerald-500", bg: "bg-emerald-500/10" },
-          { label: "Reply Rate", value: `${responseRate}%`, icon: CheckCircle, color: "text-green-500", bg: "bg-green-500/10" },
+          {
+            label: "Total Apps",
+            value: total,
+            icon: Send,
+            color: "text-blue-500",
+            bg: "bg-blue-500/10",
+          },
+          {
+            label: "Responses",
+            value: responded,
+            icon: TrendingUp,
+            color: "text-emerald-500",
+            bg: "bg-emerald-500/10",
+          },
+          {
+            label: "Reply Rate",
+            value: `${responseRate}%`,
+            icon: CheckCircle,
+            color: "text-green-500",
+            bg: "bg-green-500/10",
+          },
         ],
       },
       {
         title: "Success",
         stats: [
-          { label: "Interviews", value: interviews, icon: PhoneIncoming, color: "text-purple-500", bg: "bg-purple-500/10" },
-          { label: "Offers", value: offers, icon: Award, color: "text-amber-500", bg: "bg-amber-500/10" },
+          {
+            label: "Interviews",
+            value: interviews,
+            icon: PhoneIncoming,
+            color: "text-purple-500",
+            bg: "bg-purple-500/10",
+          },
+          {
+            label: "Offers",
+            value: offers,
+            icon: Award,
+            color: "text-amber-500",
+            bg: "bg-amber-500/10",
+          },
         ],
       },
       {
         title: "Engagement",
         stats: [
-          { label: "Open Rate", value: `${openRate}%`, icon: Eye, color: "text-indigo-500", bg: "bg-indigo-500/10" },
-          { label: "Click Rate", value: `${clickRate}%`, icon: MousePointer2, color: "text-violet-500", bg: "bg-violet-500/10" },
+          {
+            label: "Open Rate",
+            value: `${openRate}%`,
+            icon: Eye,
+            color: "text-indigo-500",
+            bg: "bg-indigo-500/10",
+          },
+          {
+            label: "Click Rate",
+            value: `${clickRate}%`,
+            icon: MousePointer2,
+            color: "text-violet-500",
+            bg: "bg-violet-500/10",
+          },
         ],
       },
       {
         title: "Health",
         stats: [
-          { label: "Issues", value: healthIssues, icon: AlertCircle, color: "text-rose-500", bg: "bg-rose-500/10" },
-          { label: "Ghosted", value: ghosted, icon: Ghost, color: "text-slate-500", bg: "bg-slate-500/10" },
+          {
+            label: "Issues",
+            value: healthIssues,
+            icon: AlertCircle,
+            color: "text-rose-500",
+            bg: "bg-rose-500/10",
+          },
+          {
+            label: "Ghosted",
+            value: ghosted,
+            icon: Ghost,
+            color: "text-slate-500",
+            bg: "bg-slate-500/10",
+          },
         ],
       },
     ];
@@ -184,14 +243,14 @@ export default function Home() {
           {isLoading ? (
             Array.from({ length: 4 }).map((_, i) => (
               <div
-                key={`sk-${i}`}
+                key={`sk-${i + 1}`}
                 className="h-32 bg-card animate-pulse rounded-2xl border border-border"
               />
             ))
           ) : statGroups.length === 0 ? (
-             <div className="col-span-full h-32 flex items-center justify-center bg-card/50 rounded-2xl border border-dashed border-border text-muted-foreground text-sm">
-                No data available yet. Start by adding an application.
-             </div>
+            <div className="col-span-full h-32 flex items-center justify-center bg-card/50 rounded-2xl border border-dashed border-border text-muted-foreground text-sm">
+              No data available yet. Start by adding an application.
+            </div>
           ) : (
             statGroups.map((group) => (
               <div
@@ -206,7 +265,10 @@ export default function Home() {
                 </div>
                 <div className="grid grid-cols-1 gap-4">
                   {group.stats.map((stat) => (
-                    <div key={stat.label} className="flex items-center justify-between">
+                    <div
+                      key={stat.label}
+                      className="flex items-center justify-between"
+                    >
                       <div className="flex items-center gap-3">
                         <div className={cn("p-2 rounded-lg", stat.bg)}>
                           <stat.icon className={cn("w-4 h-4", stat.color)} />
@@ -227,37 +289,82 @@ export default function Home() {
         </div>
 
         {/* Applications Listing */}
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-foreground">
-              Candidatures
-            </h2>
-            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full font-medium">
-              {applications.length} total
+            <div className="flex items-center gap-4">
+              <h2 className="text-lg font-bold text-foreground tracking-tight">
+                Candidatures
+              </h2>
+              <div className="flex bg-muted p-1 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setView("board")}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all",
+                    view === "board"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  Board
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setView("list")}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all",
+                    view === "list"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <List className="w-3.5 h-3.5" />
+                  List
+                </button>
+              </div>
+            </div>
+            <span className="text-[10px] font-black uppercase text-muted-foreground bg-muted/50 px-3 py-1 rounded-full tracking-wider border border-border">
+              {applications.length} TOTAL
             </span>
           </div>
 
           {isLoading ? (
-            <div className="h-64 flex items-center justify-center bg-card rounded-2xl border border-dashed border-border">
-              <div className="animate-pulse text-muted-foreground text-sm">
-                Loading applications...
+            view === "board" ? (
+              <div className="flex gap-6 overflow-hidden">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div
+                    key={`board-sk-${i + 1}`}
+                    className="shrink-0 w-80 h-96 bg-card/50 rounded-2xl border border-border animate-pulse"
+                  />
+                ))}
               </div>
-            </div>
+            ) : (
+              <div className="h-64 flex items-center justify-center bg-card rounded-2xl border border-dashed border-border">
+                <div className="animate-pulse text-muted-foreground text-sm uppercase font-black tracking-widest">
+                  chargement...
+                </div>
+              </div>
+            )
+          ) : view === "board" ? (
+            <KanbanBoard applications={applications} onRefresh={loadData} />
           ) : (
             <DataTable
               columns={columns}
               data={applications}
-              searchPlaceholder="Search applications..."
+              searchPlaceholder="Rechercher une entreprise..."
               statusOptions={[
                 "sent",
                 "delivered",
                 "opened",
                 "clicked",
                 "responded",
-                "bounced",
-                "rejected",
                 "interview",
                 "offer",
+                "rejected",
+                "rejected_later",
+                "rejected_after_interview",
+                "bounced",
                 "failed",
                 "canceled",
                 "complained",

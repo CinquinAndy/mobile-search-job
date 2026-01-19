@@ -21,6 +21,7 @@ import {
   createResponsesAction,
   linkLogsToCompaniesAction,
   reconcileApplicationStatusesAction,
+  reconcileFollowUpTrackingAction,
   resetAllDataAction,
   syncApplicationsAction,
   syncEmailLogsAction,
@@ -146,6 +147,9 @@ export default function AdminPage() {
   const [reconcileLoading, setReconcileLoading] = React.useState(false);
   const [reconcileResult, setReconcileResult] = React.useState<ActionResult | null>(null);
 
+  const [reconcileFollowUpsLoading, setReconcileFollowUpsLoading] = React.useState(false);
+  const [reconcileFollowUpsResult, setReconcileFollowUpsResult] = React.useState<ActionResult | null>(null);
+
   const handleSyncEmailLogs = async () => {
     if (!user?.id) return;
     setSyncLogsLoading(true);
@@ -251,6 +255,18 @@ export default function AdminPage() {
       setReconcileResult(result);
     } finally {
       setReconcileLoading(false);
+    }
+  };
+
+  const handleReconcileFollowUps = async () => {
+    if (!user?.id) return;
+    setReconcileFollowUpsLoading(true);
+    setReconcileFollowUpsResult(null);
+    try {
+      const result = await reconcileFollowUpTrackingAction(user.id);
+      setReconcileFollowUpsResult(result);
+    } finally {
+      setReconcileFollowUpsLoading(false);
     }
   };
 
@@ -378,6 +394,18 @@ export default function AdminPage() {
           result={reconcileResult}
           buttonText="Reconcile"
           buttonColor="bg-emerald-500 text-white hover:bg-emerald-600"
+        />
+
+        {/* Reconcile Follow-ups */}
+        <ActionCard
+          title="Reconcile Follow-ups"
+          description="Updates first contact, follow-up counts and dates based on outbound logs. (Local only)"
+          icon={<Calendar className="w-5 h-5 text-indigo-500" />}
+          onClick={handleReconcileFollowUps}
+          isLoading={reconcileFollowUpsLoading}
+          result={reconcileFollowUpsResult}
+          buttonText="Reconcile Follow-ups"
+          buttonColor="bg-indigo-500 text-white hover:bg-indigo-600"
         />
       </div>
 

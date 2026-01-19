@@ -15,7 +15,10 @@ interface ApplicationRecord {
 	created: string
 	updated: string
 	last_activity_at?: string
-	followUpCount?: number
+	last_response_at?: string
+	first_contact_at?: string
+	last_follow_up_at?: string
+	follow_up_count?: number
 	expand?: {
 		company?: CompanyRecord
 	}
@@ -37,7 +40,10 @@ export const applicationsService = {
 			status: record.status,
 			sentAt: record.created,
 			lastActivityAt: record.last_activity_at || record.updated,
-			followUpCount: record.followUpCount || 0,
+			lastResponseAt: record.last_response_at,
+			firstContactAt: record.first_contact_at || record.created,
+			lastFollowUpAt: record.last_follow_up_at,
+			followUpCount: record.follow_up_count || 0,
 		}))
 	},
 
@@ -54,7 +60,10 @@ export const applicationsService = {
 				status: record.status,
 				sentAt: record.created,
 				lastActivityAt: record.last_activity_at || record.updated,
-				followUpCount: record.followUpCount || 0,
+				lastResponseAt: record.last_response_at,
+				firstContactAt: record.first_contact_at || record.created,
+				lastFollowUpAt: record.last_follow_up_at,
+				followUpCount: record.follow_up_count || 0,
 			}
 		} catch {
 			return null
@@ -95,6 +104,7 @@ export const applicationsService = {
 			status: 'sent',
 			notes: data.notes,
 			user: userId,
+			first_contact_at: new Date().toISOString(),
 		})
 
 		return application.id
@@ -112,6 +122,16 @@ export const applicationsService = {
 		const pb = getClientPB()
 		await pb.collection('applications').update(id, {
 			status,
+			last_activity_at: new Date().toISOString(),
+		})
+	},
+
+	async incrementFollowUp(id: string): Promise<void> {
+		const pb = getClientPB()
+		const current = await pb.collection('applications').getOne<ApplicationRecord>(id)
+		await pb.collection('applications').update(id, {
+			follow_up_count: (current.follow_up_count || 0) + 1,
+			last_follow_up_at: new Date().toISOString(),
 			last_activity_at: new Date().toISOString(),
 		})
 	},

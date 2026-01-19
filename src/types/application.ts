@@ -20,6 +20,8 @@ export type ApplicationStatus =
 	| 'interview'        // Interview scheduled
 	| 'offer'            // Received an offer
 	| 'rejected'         // Rejected
+	| 'rejected_later'   // Refus mais plus tard pk pas
+	| 'rejected_after_interview' // Refus après entretien
 
 export interface JobApplication {
 	id: string
@@ -29,6 +31,8 @@ export interface JobApplication {
 	sentAt: string
 	lastActivityAt: string
 	lastResponseAt?: string
+	firstContactAt?: string
+	lastFollowUpAt?: string
 	response?: string
 	followUpCount: number
 }

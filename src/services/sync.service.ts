@@ -1140,7 +1140,8 @@ export const syncService = {
         let lastResponse = app.last_response_at || null;
 
         // Check if there are any inbound logs (meaning we got a response)
-        const hasInbound = logs.some((log: any) => log.direction === "inbound");
+        const inboundLogs = logs.filter((log: Record<string, unknown>) => log.direction === "inbound");
+        const hasInbound = inboundLogs.length > 0;
         if (hasInbound && bestScore < statusPriority.responded) {
           bestStatus = "responded";
           bestScore = statusPriority.responded;
@@ -1196,6 +1197,74 @@ export const syncService = {
       return { updatedCount, totalCount };
     } catch (error) {
       console.error("[SyncService] Reconciliation failed:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Reconcile follow-up tracking data (first contact, count, last follow-up)
+   * from existing outbound email logs.
+   */
+  async reconcileFollowUpTracking(userId: string) {
+    const pb = await getAdminPB();
+    console.info(
+      "[SyncService] Reconciling follow-up tracking from local logs...",
+    );
+
+    let updatedCount = 0;
+    let totalCount = 0;
+
+    try {
+      const applications = await pb.collection("applications").getFullList({
+        filter: `user="${userId}"`,
+        expand: "email_logs(application)",
+      });
+
+      totalCount = applications.length;
+      console.info(`[SyncService] Reconciling follow-ups for ${totalCount} applications...`);
+
+      for (const app of applications) {
+        // biome-ignore lint/suspicious/noExplicitAny: Expanded relations
+        const logs = (app.expand?.["email_logs(application)"] as any[]) || [];
+        
+        // Filter for outbound logs (sent emails)
+        const outboundLogs = logs
+          .filter((log: Record<string, unknown>) => log.direction === "outbound")
+          .sort((a, b) => {
+            const dateA = new Date(a.sent_at || a.created).getTime();
+            const dateB = new Date(b.sent_at || b.created).getTime();
+            return dateA - dateB;
+          });
+
+        if (outboundLogs.length === 0) continue;
+
+        const firstLog = outboundLogs[0];
+        const lastLog = outboundLogs[outboundLogs.length - 1];
+        
+        const firstContactAt = firstLog.sent_at || firstLog.created;
+        const followUpCount = outboundLogs.length > 1 ? outboundLogs.length - 1 : 0;
+        const lastFollowUpAt = outboundLogs.length > 1 ? (lastLog.sent_at || lastLog.created) : null;
+
+        // Update if something changed
+        if (
+          app.first_contact_at !== firstContactAt ||
+          app.follow_up_count !== followUpCount ||
+          app.last_follow_up_at !== lastFollowUpAt
+        ) {
+          console.info(`[SyncService] UPDATING follow-ups for ${app.company}: Count ${app.follow_up_count} -> ${followUpCount}`);
+          await pb.collection("applications").update(app.id, {
+            first_contact_at: firstContactAt,
+            follow_up_count: followUpCount,
+            last_follow_up_at: lastFollowUpAt,
+          });
+          updatedCount++;
+        }
+      }
+
+      console.info(`[SyncService] Follow-up reconciliation complete. Updated ${updatedCount}/${totalCount} apps.`);
+      return { updatedCount, totalCount };
+    } catch (error) {
+      console.error("[SyncService] Follow-up reconciliation failed:", error);
       throw error;
     }
   },
