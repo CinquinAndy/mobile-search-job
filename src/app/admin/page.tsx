@@ -4,6 +4,7 @@ import {
   Activity,
   Building2,
   Calendar,
+  CheckCircle,
   Database,
   Inbox,
   Link,
@@ -19,6 +20,7 @@ import {
   createCompaniesAction,
   createResponsesAction,
   linkLogsToCompaniesAction,
+  reconcileApplicationStatusesAction,
   resetAllDataAction,
   syncApplicationsAction,
   syncEmailLogsAction,
@@ -141,6 +143,9 @@ export default function AdminPage() {
   const [updateStatusesLoading, setUpdateStatusesLoading] = React.useState(false);
   const [updateStatusesResult, setUpdateStatusesResult] = React.useState<ActionResult | null>(null);
 
+  const [reconcileLoading, setReconcileLoading] = React.useState(false);
+  const [reconcileResult, setReconcileResult] = React.useState<ActionResult | null>(null);
+
   const handleSyncEmailLogs = async () => {
     if (!user?.id) return;
     setSyncLogsLoading(true);
@@ -234,6 +239,18 @@ export default function AdminPage() {
       setUpdateStatusesResult(result);
     } finally {
       setUpdateStatusesLoading(false);
+    }
+  };
+
+  const handleReconcileStatuses = async () => {
+    if (!user?.id) return;
+    setReconcileLoading(true);
+    setReconcileResult(null);
+    try {
+      const result = await reconcileApplicationStatusesAction(user.id);
+      setReconcileResult(result);
+    } finally {
+      setReconcileLoading(false);
     }
   };
 
@@ -349,6 +366,18 @@ export default function AdminPage() {
           result={updateStatusesResult}
           buttonText="Update Statuses"
           buttonColor="bg-indigo-500 text-white hover:bg-indigo-600"
+        />
+
+        {/* Reconcile Statuses */}
+        <ActionCard
+          title="Reconcile Statuses"
+          description="Updates application statuses based on existing email logs in the database. (Local only)"
+          icon={<CheckCircle className="w-5 h-5 text-emerald-500" />}
+          onClick={handleReconcileStatuses}
+          isLoading={reconcileLoading}
+          result={reconcileResult}
+          buttonText="Reconcile"
+          buttonColor="bg-emerald-500 text-white hover:bg-emerald-600"
         />
       </div>
 

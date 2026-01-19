@@ -201,3 +201,25 @@ export async function updateEmailStatusesAction(userId: string) {
     };
   }
 }
+
+/**
+ * Reconcile application statuses locally
+ */
+export async function reconcileApplicationStatusesAction(userId: string) {
+  if (!userId) {
+    return { success: false, error: "User ID is required" };
+  }
+
+  try {
+    const results = await syncService.reconcileApplicationStatuses(userId);
+    revalidatePath("/");
+    revalidatePath("/admin");
+    return { success: true, data: results };
+  } catch (error) {
+    console.error("Action Error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}

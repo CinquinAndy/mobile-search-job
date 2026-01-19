@@ -10,17 +10,17 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
  */
 function normalizeDate(dateStr: string | null | undefined): string | null {
   if (!dateStr) return null;
-  
+
   try {
     // Try parsing the date
     const date = new Date(dateStr);
-    
+
     // Check if valid date
     if (Number.isNaN(date.getTime())) {
       console.warn(`[SyncService] Invalid date: ${dateStr}`);
       return null;
     }
-    
+
     // Return ISO 8601 format
     return date.toISOString();
   } catch {
@@ -135,7 +135,10 @@ export const syncService = {
               createdCount++;
             }
           } catch (err) {
-            console.error(`[SyncService] Failed to sync email ${email.id}:`, err);
+            console.error(
+              `[SyncService] Failed to sync email ${email.id}:`,
+              err,
+            );
           }
         }
 
@@ -163,7 +166,9 @@ export const syncService = {
     if (!resend) throw new Error("Resend client not initialized");
 
     const pb = await getAdminPB();
-    console.info("[SyncService] Starting inbound email logs sync from Resend...");
+    console.info(
+      "[SyncService] Starting inbound email logs sync from Resend...",
+    );
 
     let createdCount = 0;
     let skippedCount = 0;
@@ -183,11 +188,13 @@ export const syncService = {
         }
 
         console.info(`[SyncService] Fetching inbound page ${pageCount}...`);
-        
+
         // biome-ignore lint/suspicious/noExplicitAny: Resend SDK typing may not include receiving
         const receivingApi = (resend.emails as any).receiving;
         if (!receivingApi) {
-          throw new Error("Resend receiving API not available - may require SDK update");
+          throw new Error(
+            "Resend receiving API not available - may require SDK update",
+          );
         }
 
         const response = await receivingApi.list({
@@ -206,7 +213,9 @@ export const syncService = {
 
         afterCursor = emails[emails.length - 1].id;
 
-        console.info(`[SyncService] Processing ${emails.length} inbound emails...`);
+        console.info(
+          `[SyncService] Processing ${emails.length} inbound emails...`,
+        );
 
         for (const rawEmail of emails) {
           totalProcessed++;
@@ -219,20 +228,17 @@ export const syncService = {
           const createdAt = typedEmail.created_at;
 
           if (!sender) {
+            console.warn(`[SyncService] [${totalProcessed}] SKIP: Inbound email ${typedEmail.id} has no sender`);
             skippedCount++;
             continue;
           }
 
           try {
             // Check if already exists
-            let existingLog = null;
-            try {
-              existingLog = await pb
-                .collection("email_logs")
-                .getFirstListItem(`external_id="${typedEmail.id}"`);
-            } catch {
-              // Not found
-            }
+            const existingLog = await pb
+              .collection("email_logs")
+              .getFirstListItem(`external_id="${typedEmail.id}"`)
+              .catch(() => null);
 
             if (existingLog) {
               skippedCount++;
@@ -241,6 +247,8 @@ export const syncService = {
 
             // Normalize date for PocketBase
             const sentAt = normalizeDate(createdAt);
+            
+            console.info(`[SyncService] [${totalProcessed}] Creating inbound log: ${sender} -> ${recipients[0] || "unknown"} | Date: ${sentAt}`);
 
             // Create inbound email log
             await pb.collection("email_logs").create({
@@ -257,7 +265,10 @@ export const syncService = {
             });
             createdCount++;
           } catch (err) {
-            console.error(`[SyncService] Failed to sync inbound email ${typedEmail.id}:`, err);
+            console.error(
+              `[SyncService] [${totalProcessed}] Failed to sync inbound email ${typedEmail.id}:`,
+              err,
+            );
           }
         }
 
@@ -300,7 +311,7 @@ export const syncService = {
         const recipient = log.recipient as string;
         const sender = log.sender as string;
         const email = log.direction === "inbound" ? sender : recipient;
-        
+
         if (!email) {
           skippedCount++;
           continue;
@@ -345,7 +356,9 @@ export const syncService = {
    */
   async createCompaniesFromLogs(userId: string) {
     const pb = await getAdminPB();
-    console.info("[SyncService] Creating companies/applications from email logs...");
+    console.info(
+      "[SyncService] Creating companies/applications from email logs...",
+    );
 
     let companiesCreated = 0;
     let applicationsCreated = 0;
@@ -359,7 +372,9 @@ export const syncService = {
         sort: "sent_at",
       });
 
-      console.info(`[SyncService] Found ${logs.length} unlinked outbound email logs`);
+      console.info(
+        `[SyncService] Found ${logs.length} unlinked outbound email logs`,
+      );
 
       for (const log of logs) {
         const recipient = log.recipient as string;
@@ -430,6 +445,8 @@ export const syncService = {
 
       for (const log of logs) {
         const sender = log.sender as string;
+        const subject = log.subject as string || "";
+        
         if (!sender) {
           skippedCount++;
           continue;
@@ -441,43 +458,55 @@ export const syncService = {
           continue;
         }
 
+        console.info(`[SyncService] Processing inbound log: ${sender} | Subject: ${subject.slice(0, 40)}...`);
+
         try {
           // Check if response already exists for this email log
-          try {
-            await pb
-              .collection("responses")
-              .getFirstListItem(`email_log="${log.id}"`);
-            // Already exists, skip
+          const existingResponse = await pb
+            .collection("responses")
+            .getFirstListItem(`email_log="${log.id}"`)
+            .catch(() => null);
+
+          if (existingResponse) {
             skippedCount++;
             continue;
-          } catch {
-            // Not found, create it
           }
 
           // Find company by domain
-          let company = null;
-          try {
-            company = await pb
-              .collection("companies")
-              .getFirstListItem(`domain="${domain}" && user="${userId}"`);
-          } catch {
-            // Company not found, skip
+          const company = await pb
+            .collection("companies")
+            .getFirstListItem(`domain="${domain}" && user="${userId}"`)
+            .catch(() => null);
+
+          if (!company) {
+            console.warn(`[SyncService] SKIP: No company found for domain ${domain}`);
             skippedCount++;
             continue;
           }
 
           // Find application for this company
-          let application = null;
-          try {
+          // Try to find the most recent application that isn't rejected or inactive
+          let application = await pb
+            .collection("applications")
+            .getFirstListItem(`company="${company.id}" && status!="rejected"`, {
+              sort: "-last_activity_at",
+            })
+            .catch(() => null);
+
+          // Fallback to any application for this company if none active
+          if (!application) {
             application = await pb
               .collection("applications")
-              .getFirstListItem(`company="${company.id}"`, { sort: "-created" });
-          } catch {
-            // No application found
+              .getFirstListItem(`company="${company.id}"`, {
+                sort: "-last_activity_at",
+              })
+              .catch(() => null);
           }
 
           // Detect response type from subject
-          const responseType = this.detectResponseType(log.subject as string || "");
+          const responseType = this.detectResponseType(subject);
+
+          console.info(`[SyncService] Found association: ${company.name} | App: ${application?.id || "NONE"} | Type: ${responseType}`);
 
           // Create response
           await pb.collection("responses").create({
@@ -486,7 +515,7 @@ export const syncService = {
             email_log: log.id,
             type: responseType,
             sender_email: sender,
-            subject: log.subject || "",
+            subject: subject,
             received_at: log.sent_at || log.created,
             user: userId,
           });
@@ -495,24 +524,36 @@ export const syncService = {
           // Update application status if we have one
           if (application) {
             const newStatus = this.getStatusFromResponseType(responseType);
+            const logDate = log.sent_at || log.created;
+            
+            // biome-ignore lint/suspicious/noExplicitAny: PocketBase transition
+            const updateData: any = {
+              last_activity_at: logDate,
+              last_response_at: logDate,
+            };
+
+            // Only update if it's a more "advanced" status or if status is null/other
             if (newStatus && application.status !== newStatus) {
-              await pb.collection("applications").update(application.id, {
-                status: newStatus,
-                last_activity_at: log.sent_at || log.created,
-              });
+              console.info(`[SyncService] Updating application status: ${application.status} -> ${newStatus}`);
+              updateData.status = newStatus;
               applicationsUpdated++;
             }
+
+            await pb.collection("applications").update(application.id, updateData);
           }
 
-          // Link email log to company if not already
-          if (!log.company) {
+          // Ensure email log is linked to company/application
+          if (!log.company || !log.application) {
             await pb.collection("email_logs").update(log.id, {
               company: company.id,
-              application: application?.id || null,
+              application: application?.id || log.application || null,
             });
           }
         } catch (err) {
-          console.error(`[SyncService] Failed to create response for log ${log.id}:`, err);
+          console.error(
+            `[SyncService] Failed to create response for log ${log.id}:`,
+            err,
+          );
           skippedCount++;
         }
       }
@@ -531,12 +572,14 @@ export const syncService = {
    * COMBINED: Full sync - email logs + create companies/applications + responses
    */
   async syncResendEmails(userId: string) {
-    const emailResult = await this.syncEmailLogsOnly(userId);
+    const outboundResult = await this.syncEmailLogsOnly(userId);
+    const inboundResult = await this.syncInboundEmailsOnly(userId);
     const companyResult = await this.createCompaniesFromLogs(userId);
     const responseResult = await this.createResponsesFromLogs(userId);
 
     return {
-      ...emailResult,
+      outboundSynced: outboundResult.createdCount,
+      inboundSynced: inboundResult.createdCount,
       companiesCreated: companyResult.companiesCreated,
       applicationsCreated: companyResult.applicationsCreated,
       responsesCreated: responseResult.responsesCreated,
@@ -556,7 +599,11 @@ export const syncService = {
     subject: string,
     sentAt: string,
     userId: string,
-  ): Promise<{ companyCreated: boolean; applicationCreated: boolean; companyId?: string }> {
+  ): Promise<{
+    companyCreated: boolean;
+    applicationCreated: boolean;
+    companyId?: string;
+  }> {
     let companyCreated = false;
     let applicationCreated = false;
 
@@ -581,7 +628,9 @@ export const syncService = {
           user: userId,
         });
         companyCreated = true;
-        console.info(`[SyncService] Created company: ${companyName} (${domain})`);
+        console.info(
+          `[SyncService] Created company: ${companyName} (${domain})`,
+        );
       }
 
       // 2. Find or create application for this company
@@ -619,7 +668,10 @@ export const syncService = {
 
       return { companyCreated, applicationCreated, companyId: company.id };
     } catch (err) {
-      console.warn(`[SyncService] Failed to create/match for log ${logId}:`, err);
+      console.warn(
+        `[SyncService] Failed to create/match for log ${logId}:`,
+        err,
+      );
       return { companyCreated: false, applicationCreated: false };
     }
   },
@@ -696,9 +748,7 @@ export const syncService = {
     const parts = domain.split(".");
     let name = parts[0];
 
-    name = name
-      .replace(/-/g, " ")
-      .replace(/([a-z])([A-Z])/g, "$1 $2");
+    name = name.replace(/-/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2");
 
     return name
       .split(" ")
@@ -812,7 +862,9 @@ export const syncService = {
         filter: `user="${userId}" && provider="resend"`,
       });
 
-      console.info(`[SyncService] Found ${logs.length} Resend email logs to update`);
+      console.info(
+        `[SyncService] Found ${logs.length} Resend email logs to update`,
+      );
 
       for (const log of logs) {
         const externalId = log.external_id as string;
@@ -829,7 +881,10 @@ export const syncService = {
           const response = await resend.emails.get(externalId);
 
           if (response.error) {
-            console.warn(`[SyncService] Failed to fetch email ${externalId}:`, response.error.message);
+            console.warn(
+              `[SyncService] Failed to fetch email ${externalId}:`,
+              response.error.message,
+            );
             errorCount++;
             continue;
           }
@@ -848,12 +903,17 @@ export const syncService = {
               sent_at: sentAt,
             });
             updatedCount++;
-            console.info(`[SyncService] Updated date for ${externalId}: ${sentAt}`);
+            console.info(
+              `[SyncService] Updated date for ${externalId}: ${sentAt}`,
+            );
           } else {
             skippedCount++;
           }
         } catch (err) {
-          console.error(`[SyncService] Error updating email ${externalId}:`, err);
+          console.error(
+            `[SyncService] Error updating email ${externalId}:`,
+            err,
+          );
           errorCount++;
         }
       }
@@ -889,24 +949,43 @@ export const syncService = {
         filter: `user="${userId}" && provider="resend" && direction="outbound"`,
       });
 
-      console.info(`[SyncService] Found ${logs.length} Resend email logs to check`);
+      console.info(
+        `[SyncService] Found ${logs.length} Resend email logs to check`,
+      );
 
+      let processedCount = 0;
       for (const log of logs) {
+        processedCount++;
         const externalId = log.external_id as string;
+        const subject = (log.subject as string) || "(no subject)";
+        const recipient = (log.recipient as string) || "(unknown)";
+
+        console.info(
+          `[SyncService] [${processedCount}/${logs.length}] Processing: ${externalId.slice(0, 8)}... | To: ${recipient} | Subject: ${subject.slice(0, 40)}...`,
+        );
+
         if (!externalId) {
+          console.warn(
+            `[SyncService] [${processedCount}/${logs.length}] SKIP: No external_id`,
+          );
           skippedCount++;
           continue;
         }
 
         try {
           // Rate limit: wait 600ms between requests
+          console.info(
+            `[SyncService] [${processedCount}/${logs.length}] Calling Resend API...`,
+          );
           await delay(600);
 
           // Fetch email details from Resend
           const response = await resend.emails.get(externalId);
 
           if (response.error) {
-            console.warn(`[SyncService] Failed to fetch email ${externalId}:`, response.error.message);
+            console.warn(
+              `[SyncService] [${processedCount}/${logs.length}] API ERROR: ${response.error.message}`,
+            );
             errorCount++;
             continue;
           }
@@ -914,49 +993,87 @@ export const syncService = {
           const emailData = response.data;
           // biome-ignore lint/suspicious/noExplicitAny: Resend API typing
           const lastEvent = (emailData as any)?.last_event;
-          
+          const currentStatus = log.status as string;
+
+          console.info(
+            `[SyncService] [${processedCount}/${logs.length}] Resend last_event: "${lastEvent}" | DB status: "${currentStatus}"`,
+          );
+
           if (!lastEvent) {
+            console.warn(
+              `[SyncService] [${processedCount}/${logs.length}] SKIP: No last_event from Resend`,
+            );
             skippedCount++;
             continue;
           }
 
           // Update email_logs status if different
-          if (lastEvent !== log.status) {
+          if (lastEvent !== currentStatus) {
+            console.info(
+              `[SyncService] [${processedCount}/${logs.length}] UPDATING email_log: ${currentStatus} → ${lastEvent}`,
+            );
             await pb.collection("email_logs").update(log.id, {
               status: lastEvent,
             });
             updatedLogsCount++;
-            console.info(`[SyncService] Updated status for ${externalId}: ${log.status} → ${lastEvent}`);
 
             // Also update the associated application if exists
             const applicationId = log.application as string;
+            console.info(
+              `[SyncService] [${processedCount}/${logs.length}] Application ID: ${applicationId || "NONE"}`,
+            );
+
             if (applicationId) {
               try {
                 // Map email event to application status
                 const appStatusMap: Record<string, string> = {
-                  delivered: "delivered",
-                  opened: "opened",
-                  clicked: "clicked",
                   bounced: "bounced",
+                  clicked: "clicked",
+                  complained: "bounced", // Treating spam complaint as a bounce/negative signal
+                  delivered: "delivered",
+                  delivery_delayed: "delivery_delayed",
+                  failed: "failed",
+                  opened: "opened",
+                  sent: "sent",
+                  suppressed: "suppressed",
+                  queued: "queued",
+                  scheduled: "scheduled",
+                  canceled: "canceled",
                 };
-                
+
                 const newAppStatus = appStatusMap[lastEvent];
                 if (newAppStatus) {
+                  console.info(
+                    `[SyncService] [${processedCount}/${logs.length}] UPDATING application: → ${newAppStatus}`,
+                  );
                   await pb.collection("applications").update(applicationId, {
                     status: newAppStatus,
                     last_activity_at: new Date().toISOString(),
                   });
                   updatedAppsCount++;
+                } else {
+                  console.info(
+                    `[SyncService] [${processedCount}/${logs.length}] No app status mapping for "${lastEvent}"`,
+                  );
                 }
-              } catch {
-                // Application might not exist
+              } catch (appErr) {
+                console.warn(
+                  `[SyncService] [${processedCount}/${logs.length}] Failed to update application:`,
+                  appErr,
+                );
               }
             }
           } else {
+            console.info(
+              `[SyncService] [${processedCount}/${logs.length}] SKIP: Status unchanged (${currentStatus})`,
+            );
             skippedCount++;
           }
         } catch (err) {
-          console.error(`[SyncService] Error updating status for ${externalId}:`, err);
+          console.error(
+            `[SyncService] [${processedCount}/${logs.length}] ERROR:`,
+            err,
+          );
           errorCount++;
         }
       }
@@ -967,6 +1084,118 @@ export const syncService = {
       return { updatedLogsCount, updatedAppsCount, skippedCount, errorCount };
     } catch (error) {
       console.error("[SyncService] Update email statuses failed:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Reconcile all application statuses based on existing email_logs in DB.
+   * No API calls, purely local logic to ensure DB consistency.
+   */
+  async reconcileApplicationStatuses(userId: string) {
+    const pb = await getAdminPB();
+    console.info(
+      "[SyncService] Reconciling application statuses from local logs...",
+    );
+
+    let updatedCount = 0;
+    let totalCount = 0;
+
+    // Status priority (highest value = most advanced state)
+    const statusPriority: Record<string, number> = {
+      offer: 100,
+      interview: 90,
+      rejected: 80,
+      responded: 70,
+      clicked: 60,
+      opened: 50,
+      delivered: 40,
+      sent: 30,
+      bounced: 20,
+      complained: 20,
+      failed: 20,
+      delivery_delayed: 10,
+      queued: 5,
+      scheduled: 5,
+      canceled: 0,
+      suppressed: 0,
+    };
+
+    try {
+      const applications = await pb.collection("applications").getFullList({
+        filter: `user="${userId}"`,
+        expand: "email_logs(application)",
+      });
+
+      totalCount = applications.length;
+      console.info(`[SyncService] Reconciling ${totalCount} applications...`);
+
+      for (const app of applications) {
+        // biome-ignore lint/suspicious/noExplicitAny: Expanded PocketBase relations are hard to type precisely
+        const logs = (app.expand?.["email_logs(application)"] as any[]) || [];
+
+        let bestStatus = app.status as string;
+        let bestScore = statusPriority[bestStatus] || -1;
+        let latestActivity = app.last_activity_at || app.created;
+        let lastResponse = app.last_response_at || null;
+
+        // Check if there are any inbound logs (meaning we got a response)
+        const hasInbound = logs.some((log: any) => log.direction === "inbound");
+        if (hasInbound && bestScore < statusPriority.responded) {
+          bestStatus = "responded";
+          bestScore = statusPriority.responded;
+        }
+
+        // Check all logs to find the most advanced status and latest activity
+        for (const log of logs) {
+          const logStatus = log.status as string;
+          const logScore = statusPriority[logStatus] || 0;
+
+          if (logScore > bestScore) {
+            bestStatus = logStatus;
+            bestScore = logScore;
+          }
+
+          // Update latest activity date if log is newer
+          const logDate = log.sent_at || log.received_at || log.created;
+          if (logDate && logDate > latestActivity) {
+            latestActivity = logDate;
+          }
+
+          // Track latest response date specifically
+          if (
+            log.direction === "inbound" &&
+            logDate &&
+            (!lastResponse || logDate > lastResponse)
+          ) {
+            lastResponse = logDate;
+          }
+        }
+
+        // Update if something changed
+        if (
+          bestStatus !== app.status ||
+          latestActivity !== app.last_activity_at ||
+          lastResponse !== app.last_response_at
+        ) {
+          console.info(
+            `[SyncService] Reconciled ${app.company}: ${app.status} → ${bestStatus} | Activity: ${latestActivity} | Response: ${lastResponse}`,
+          );
+          await pb.collection("applications").update(app.id, {
+            status: bestStatus,
+            last_activity_at: latestActivity,
+            last_response_at: lastResponse,
+          });
+          updatedCount++;
+        }
+      }
+
+      console.info(
+        `[SyncService] Reconciliation complete. Updated ${updatedCount}/${totalCount} applications.`,
+      );
+      return { updatedCount, totalCount };
+    } catch (error) {
+      console.error("[SyncService] Reconciliation failed:", error);
       throw error;
     }
   },
