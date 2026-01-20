@@ -30,7 +30,7 @@ function convertResendEmail(
     id: resendEmail.id,
     resendId: resendEmail.id,
     from: {
-      email: resendEmail.from || "unknown@example.com",
+      email: resendEmail.from || "contact@andy-cinquin.com",
     },
     to: resendEmail.to.map((email) => ({ email })),
     subject: resendEmail.subject,

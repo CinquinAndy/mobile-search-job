@@ -36,6 +36,17 @@ export const emailClientService = {
   },
 
   /**
+   * Load full email content (HTML/text) for an email
+   * Uses caching and throttling to avoid rate limits
+   */
+  async loadEmailContent(
+    emailId: string,
+    resendId: string,
+  ): Promise<{ html?: string; text?: string }> {
+    return emailPbService.fetchEmailContent(emailId, resendId);
+  },
+
+  /**
    * Send a new email
    */
   async sendEmail(params: {

@@ -109,6 +109,48 @@ export const emailPbService = {
   },
 
   /**
+   * Lazy load email content (HTML/text) from Resend
+   * Checks cache first, then fetches if needed with throttling
+   */
+  async fetchEmailContent(
+    emailId: string,
+    resendId: string,
+  ): Promise<{ html?: string; text?: string }> {
+    try {
+      // 1. Check if content already exists in PocketBase
+      const record = await getPb().collection("emails").getOne(emailId);
+      
+      // If we already have content, return it
+      if (record.body_html || record.body_text) {
+        console.info(`[EmailPB] Using cached content for email ${resendId}`);
+        return {
+          html: record.body_html,
+          text: record.body_text,
+        };
+      }
+
+      // 2. Content not in cache - fetch from Resend with throttling
+      console.info(`[EmailPB] Fetching content for email ${resendId} from Resend...`);
+      
+      const { fetchEmailContentThrottled } = await import("./email-content-fetcher");
+      const content = await fetchEmailContentThrottled(resendId);
+      
+      // 3. Update PocketBase with the content
+      await getPb().collection("emails").update(emailId, {
+        body_html: content.html,
+        body_text: content.text,
+      });
+
+      console.info(`[EmailPB] Content cached for email ${resendId}`);
+
+      return content;
+    } catch (error) {
+      console.error(`Failed to fetch email content for ${emailId}:`, error);
+      return {};
+    }
+  },
+
+  /**
    * Get a single email by ID
    */
   async getEmailById(id: string): Promise<Email | null> {
@@ -148,7 +190,7 @@ export const emailPbService = {
       const data = emailToPb(email, userId);
 
       // Try to find existing email by resend_id
-      const existing = await pb
+      const existing = await getPb()
         .collection("emails")
         .getFirstListItem(`resend_id = "${email.resendId || email.id}"`)
         .catch(() => null);
@@ -264,7 +306,7 @@ export const emailPbService = {
    */
   async getLatestSyncLog(userId: string): Promise<EmailSyncLog | null> {
     try {
-      const record = await pb
+      const record = await getPb()
         .collection("email_sync_logs")
         .getFirstListItem(`user = "${userId}"`, { sort: "-created" });
 

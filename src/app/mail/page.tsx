@@ -1,11 +1,12 @@
 "use client";
 
-import { Mail, RefreshCw, Search, X } from "lucide-react";
+import { Loader2, Mail, RefreshCw, Search, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { EmailComposer } from "@/components/mail/email-composer";
 import { EmailDetail } from "@/components/mail/email-detail";
 import { EmailList } from "@/components/mail/email-list";
 import { EmailSidebar } from "@/components/mail/email-sidebar";
+import { EmailSyncModal } from "@/components/mail/email-sync-modal";
 import { cn } from "@/lib/utils";
 import { emailClientService } from "@/services/email-client.service";
 import { signatureService } from "@/services/signature.service";
@@ -22,9 +23,11 @@ export default function MailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [showComposer, setShowComposer] = useState(false);
+  const [showSyncModal, setShowSyncModal] = useState(false);
   const [composerMode, setComposerMode] = useState<"new" | "reply" | "forward">(
     "new",
   );
+  const [composerEmail, setComposerEmail] = useState<Email | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [signatures, setSignatures] = useState<EmailSignature[]>([]);
@@ -77,22 +80,66 @@ export default function MailPage() {
     loadSignatures();
   }, [loadEmails, loadTemplates, loadSignatures]);
 
+  // Load email content when an email is selected
+  useEffect(() => {
+    async function loadContent() {
+      if (!selectedEmail || !selectedEmail.resendId) return;
+      
+      // Skip if content already loaded
+      if (selectedEmail.html || selectedEmail.body) return;
+
+      try {
+        console.info(`[Mail] Loading content for email ${selectedEmail.id}...`);
+        const content = await emailClientService.loadEmailContent(
+          selectedEmail.id,
+          selectedEmail.resendId,
+        );
+
+        // Update the email in the list with the loaded content
+        setEmails((prevEmails) =>
+          prevEmails.map((email) =>
+            email.id === selectedEmail.id
+              ? { ...email, html: content.html, body: content.text || email.body }
+              : email,
+          ),
+        );
+
+        // Update selected email
+        setSelectedEmail((prev) =>
+          prev
+            ? { ...prev, html: content.html, body: content.text || prev.body }
+            : prev,
+        );
+
+        console.info(`[Mail] Content loaded for email ${selectedEmail.id}`);
+      } catch (error) {
+        console.error("Failed to load email content:", error);
+      }
+    }
+
+    loadContent();
+  }, [selectedEmail]);
+
   // Sync emails with background polling
-  const handleSync = async () => {
+  const handleSync = async (params: {
+    syncType: "full" | "sent_only" | "received_only";
+    dateFrom?: Date;
+    dateTo?: Date;
+  }) => {
     setIsSyncing(true);
+    setShowSyncModal(false); // Close modal
+
     try {
-      // Start background sync
-      const { syncId, message } = await emailClientService.syncEmails({
-        syncType: "full",
-      });
-      
+      // Start background sync with parameters
+      const { syncId, message } = await emailClientService.syncEmails(params);
+
       console.log(message, "Sync ID:", syncId);
-      
+
       // Poll for sync completion
       const pollInterval = setInterval(async () => {
         try {
           const syncLog = await emailClientService.getSyncStatus(syncId);
-          
+
           if (syncLog?.status === "completed") {
             clearInterval(pollInterval);
             // Reload emails from PocketBase
@@ -109,13 +156,15 @@ export default function MailPage() {
           console.error("Error checking sync status:", error);
         }
       }, 2000); // Poll every 2 seconds
-      
+
       // Timeout after 2 minutes
       setTimeout(() => {
         clearInterval(pollInterval);
         if (isSyncing) {
           setIsSyncing(false);
-          alert("La synchronisation prend trop de temps. Elle continue en arrière-plan.");
+          alert(
+            "La synchronisation prend trop de temps. Elle continue en arrière-plan.",
+          );
         }
       }, 120000);
     } catch (error) {
@@ -232,7 +281,7 @@ export default function MailPage() {
           {/* Sync button */}
           <button
             type="button"
-            onClick={handleSync}
+            onClick={() => setShowSyncModal(true)}
             disabled={isSyncing}
             className="p-2 hover:bg-secondary rounded-lg transition-colors"
             title="Sync emails"
@@ -358,6 +407,15 @@ export default function MailPage() {
       >
         <Mail className="w-6 h-6" />
       </button>
+
+      {/* Email Sync Modal */}
+      {showSyncModal && (
+        <EmailSyncModal
+          onSync={handleSync}
+          onClose={() => setShowSyncModal(false)}
+          isSyncing={isSyncing}
+        />
+      )}
     </div>
   );
 }

@@ -10,12 +10,16 @@ if (!RESEND_KEY) {
 
 export const resend = RESEND_KEY ? new Resend(RESEND_KEY) : null;
 
+// Email update structure from Resend
 export interface ResendEmailUpdate {
   id: string;
+  from?: string; // Sender email address
   to: string[];
   subject: string;
   created_at: string;
-  status: string;
+  status?: string;
+  html?: string | null; // HTML content
+  text?: string | null; // Plain text content
 }
 
 export interface ResendReceivedEmail {
@@ -78,6 +82,35 @@ export const resendService = {
   },
 
   /**
+   * Get a single email by ID with full content (HTML/text)
+   */
+  async getEmail(emailId: string): Promise<ResendEmailUpdate> {
+    if (!resend) throw new Error("Resend client not initialized");
+
+    const response = await resend.emails.get(emailId);
+
+    if (response.error) {
+      throw new Error(`Resend Error: ${response.error.message}`);
+    }
+
+    const email = response.data;
+    if (!email) {
+      throw new Error("Email not found");
+    }
+
+    return {
+      id: email.id,
+      from: email.from,
+      to: Array.isArray(email.to) ? email.to : [email.to],
+      subject: email.subject || "",
+      created_at: email.created_at,
+      status: email.last_event || "sent",
+      html: email.html || null,
+      text: email.text || null,
+    };
+  },
+
+  /**
    * List ALL sent emails from Resend using cursor-based pagination
    * Fetches all pages until has_more is false
    * Includes rate limiting delay to avoid 429 errors
@@ -115,10 +148,13 @@ export const resendService = {
         // biome-ignore lint/suspicious/noExplicitAny: Resend API response typing
         const mappedEmails = emails.map((email: any) => ({
           id: email.id,
+          from: email.from || "contact@andy-cinquin.com", // Include from field
           to: email.to || [],
           subject: email.subject || "",
           created_at: email.created_at,
-          status: email.last_event || "sent",
+          status: email.last_event || "sent", // Map last_event to status
+          html: null, // List endpoint doesn't include HTML content
+          text: null, // List endpoint doesn't include text content
         }));
 
         allEmails.push(...mappedEmails);
