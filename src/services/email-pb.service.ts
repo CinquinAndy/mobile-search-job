@@ -1,10 +1,8 @@
-import PocketBase from "pocketbase";
 import type { Email, EmailFolder } from "@/types/email";
+import { getClientPB } from "./pocketbase.client";
 
-const pb = new PocketBase(process.env.NEXT_PUBLIC_POCKETBASE_URL);
-
-// Enable auto-cancellation for duplicate requests
-pb.autoCancellation(false);
+// Use existing PocketBase client
+const getPb = () => getClientPB();
 
 // Email sync log interface
 export interface EmailSyncLog {
@@ -91,16 +89,14 @@ export const emailPbService = {
   /**
    * Get emails by folder
    */
-  async getEmails(
-    userId: string,
-    folder?: EmailFolder,
-  ): Promise<Email[]> {
+  async getEmails(userId: string, folder?: EmailFolder): Promise<Email[]> {
     try {
+      const pb = getPb();
       const filter = folder
         ? `user = "${userId}" && folder = "${folder}"`
         : `user = "${userId}"`;
 
-      const records = await pb.collection("emails").getFullList({
+      const records = await getPb().collection("emails").getFullList({
         filter,
         sort: "-created",
       });
@@ -117,7 +113,7 @@ export const emailPbService = {
    */
   async getEmailById(id: string): Promise<Email | null> {
     try {
-      const record = await pb.collection("emails").getOne(id);
+      const record = await getPb().collection("emails").getOne(id);
       return pbToEmail(record);
     } catch (error) {
       console.error(`Failed to get email ${id}:`, error);
@@ -132,7 +128,7 @@ export const emailPbService = {
     try {
       const filter = `user = "${userId}" && (subject ~ "${query}" || body_text ~ "${query}" || from_email ~ "${query}")`;
 
-      const records = await pb.collection("emails").getFullList({
+      const records = await getPb().collection("emails").getFullList({
         filter,
         sort: "-created",
       });
@@ -152,16 +148,17 @@ export const emailPbService = {
       const data = emailToPb(email, userId);
 
       // Try to find existing email by resend_id
-      const existing = await pb.collection("emails").getFirstListItem(
-        `resend_id = "${email.resendId || email.id}"`,
-      ).catch(() => null);
+      const existing = await pb
+        .collection("emails")
+        .getFirstListItem(`resend_id = "${email.resendId || email.id}"`)
+        .catch(() => null);
 
       if (existing) {
         // Update existing
-        await pb.collection("emails").update(existing.id, data);
+        await getPb().collection("emails").update(existing.id, data);
       } else {
         // Create new
-        await pb.collection("emails").create(data);
+        await getPb().collection("emails").create(data);
       }
     } catch (error) {
       console.error("Failed to save email:", error);
@@ -178,9 +175,7 @@ export const emailPbService = {
       const batchSize = 50;
       for (let i = 0; i < emails.length; i += batchSize) {
         const batch = emails.slice(i, i + batchSize);
-        await Promise.all(
-          batch.map((email) => this.saveEmail(email, userId)),
-        );
+        await Promise.all(batch.map((email) => this.saveEmail(email, userId)));
       }
     } catch (error) {
       console.error("Failed to save emails batch:", error);
@@ -191,18 +186,15 @@ export const emailPbService = {
   /**
    * Update an email
    */
-  async updateEmail(
-    id: string,
-    updates: Partial<Email>,
-  ): Promise<void> {
+  async updateEmail(id: string, updates: Partial<Email>): Promise<void> {
     try {
       const data: any = {};
-      
+
       if (updates.isRead !== undefined) data.is_read = updates.isRead;
       if (updates.isStarred !== undefined) data.is_starred = updates.isStarred;
       if (updates.folder) data.folder = updates.folder;
 
-      await pb.collection("emails").update(id, data);
+      await getPb().collection("emails").update(id, data);
     } catch (error) {
       console.error(`Failed to update email ${id}:`, error);
       throw error;
@@ -214,7 +206,7 @@ export const emailPbService = {
    */
   async deleteEmail(id: string): Promise<void> {
     try {
-      await pb.collection("emails").delete(id);
+      await getPb().collection("emails").delete(id);
     } catch (error) {
       console.error(`Failed to delete email ${id}:`, error);
       throw error;
@@ -233,7 +225,7 @@ export const emailPbService = {
     },
   ): Promise<string> {
     try {
-      const record = await pb.collection("email_sync_logs").create({
+      const record = await getPb().collection("email_sync_logs").create({
         sync_type: params.sync_type,
         status: "pending",
         date_from: params.date_from?.toISOString(),
@@ -260,7 +252,7 @@ export const emailPbService = {
     updates: Partial<EmailSyncLog>,
   ): Promise<void> {
     try {
-      await pb.collection("email_sync_logs").update(id, updates);
+      await getPb().collection("email_sync_logs").update(id, updates);
     } catch (error) {
       console.error(`Failed to update sync log ${id}:`, error);
       throw error;
@@ -272,10 +264,9 @@ export const emailPbService = {
    */
   async getLatestSyncLog(userId: string): Promise<EmailSyncLog | null> {
     try {
-      const record = await pb.collection("email_sync_logs").getFirstListItem(
-        `user = "${userId}"`,
-        { sort: "-created" },
-      );
+      const record = await pb
+        .collection("email_sync_logs")
+        .getFirstListItem(`user = "${userId}"`, { sort: "-created" });
 
       return record as EmailSyncLog;
     } catch (error) {
@@ -288,7 +279,7 @@ export const emailPbService = {
    */
   async getSyncLog(id: string): Promise<EmailSyncLog | null> {
     try {
-      const record = await pb.collection("email_sync_logs").getOne(id);
+      const record = await getPb().collection("email_sync_logs").getOne(id);
       return record as EmailSyncLog;
     } catch (error) {
       return null;

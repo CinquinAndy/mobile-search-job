@@ -1,52 +1,63 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import PocketBase from "pocketbase";
-import { emailService } from "@/services/email.service";
-import { emailPbService } from "@/services/email-pb.service";
+import { pbAdmin } from "@/services/pocketbase.server";
+import type { Email, EmailFolder } from "@/types/email";
 
-// Helper to get authenticated PocketBase instance
-async function getPbWithAuth() {
-  const cookieStore = await cookies();
-  const pb = new PocketBase(process.env.NEXT_PUBLIC_POCKETBASE_URL);
-
-  // Get auth from cookies
-  const authCookie = cookieStore.get("pb_auth");
-  if (authCookie?.value) {
-    pb.authStore.loadFromCookie(authCookie.value);
-  }
-
-  return pb;
+// Helper to convert PocketBase email to our Email type
+function pbToEmail(record: any): Email {
+  return {
+    id: record.id,
+    resendId: record.resend_id,
+    from: {
+      email: record.from_email,
+      name: record.from_name,
+    },
+    to: record.to_emails || [],
+    cc: record.cc_emails,
+    bcc: record.bcc_emails,
+    subject: record.subject,
+    body: record.body_text || "",
+    html: record.body_html,
+    status: record.status as any,
+    folder: record.folder as EmailFolder,
+    threadId: record.thread_id,
+    inReplyTo: record.in_reply_to,
+    isRead: record.is_read || false,
+    isStarred: record.is_starred || false,
+    hasAttachments: record.has_attachments || false,
+    sentAt: record.sent_at,
+    receivedAt: record.received_at,
+    createdAt: record.created,
+    updatedAt: record.updated,
+    metadata: {
+      openedAt: record.opened_at,
+      clickedAt: record.clicked_at,
+      ...record.resend_metadata,
+    },
+  };
 }
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const folder = searchParams.get("folder") || "sent";
+    const userId = searchParams.get("userId");
 
-    const pb = await getPbWithAuth();
-
-    if (!pb.authStore.isValid) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 },
-      );
-    }
-
-    const userId = pb.authStore.model?.id;
     if (!userId) {
       return NextResponse.json(
-        { success: false, error: "User ID not found" },
-        { status: 401 },
+        { success: false, error: "userId parameter required" },
+        { status: 400 },
       );
     }
 
-    // Read from PocketBase instead of calling Resend directly
-    let emails;
-    if (folder === "inbox") {
-      emails = await emailPbService.getEmails(userId, "inbox" as any);
-    } else {
-      emails = await emailPbService.getEmails(userId, "sent" as any);
-    }
+    // Read from PocketBase using admin
+    const filter = `user = "${userId}" && folder = "${folder}"`;
+    
+    const records = await pbAdmin.collection("emails").getFullList({
+      filter,
+      sort: "-created",
+    });
+
+    const emails = records.map(pbToEmail);
 
     return NextResponse.json({ success: true, emails });
   } catch (error) {
@@ -54,47 +65,7 @@ export async function GET(request: Request) {
     return NextResponse.json(
       {
         success: false,
-        error:
-          error instanceof Error ? error.message : "Failed to fetch emails",
-      },
-      { status: 500 },
-    );
-  }
-}
-
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    const { action, ...params } = body;
-
-    if (action === "send") {
-      const result = await emailService.sendEmail(params);
-      return NextResponse.json({ success: true, result });
-    }
-
-    if (action === "reply") {
-      const { emailId, ...replyParams } = params;
-      const result = await emailService.replyToEmail(emailId, replyParams);
-      return NextResponse.json({ success: true, result });
-    }
-
-    if (action === "forward") {
-      const { emailId, ...forwardParams } = params;
-      const result = await emailService.forwardEmail(emailId, forwardParams);
-      return NextResponse.json({ success: true, result });
-    }
-
-    return NextResponse.json(
-      { success: false, error: "Invalid action" },
-      { status: 400 },
-    );
-  } catch (error) {
-    console.error("Failed to process email action:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          error instanceof Error ? error.message : "Failed to process email",
+        error: error instanceof Error ? error.message : "Failed to fetch emails",
       },
       { status: 500 },
     );

@@ -47,20 +47,28 @@ export function EmailList({
         >
           <div className="flex items-start gap-3">
             {/* Star button */}
-            <button
-              type="button"
+            <div
+              role="button"
+              tabIndex={0}
               onClick={(e) => {
                 e.stopPropagation();
                 onToggleStar?.(email.id);
               }}
-              className="mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onToggleStar?.(email.id);
+                }
+              }}
+              className="mt-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
             >
               {email.isStarred ? (
                 <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
               ) : (
                 <StarOff className="w-4 h-4 text-muted-foreground" />
               )}
-            </button>
+            </div>
 
             <div className="flex-1 min-w-0">
               {/* Header */}

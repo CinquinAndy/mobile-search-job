@@ -6,36 +6,33 @@ import type {
   Email,
   EmailSignature,
   EmailTemplate,
-  SendEmailParams,
 } from "@/types/email";
+import { EmailFolder } from "@/types/email";
+import { emailPbService } from "./email-pb.service";
+import { getCurrentUser } from "./pocketbase.client";
 
+/**
+ * Client-side email service that reads from PocketBase directly
+ */
 export const emailClientService = {
   /**
-   * Get sent emails from server
+   * Get sent emails from PocketBase
    */
   async getSentEmails(): Promise<Email[]> {
-    const response = await fetch("/api/emails?folder=sent");
-    const data = await response.json();
-
-    if (!data.success) {
-      throw new Error(data.error || "Failed to fetch sent emails");
-    }
-
-    return data.emails;
+    const user = getCurrentUser();
+    if (!user) throw new Error("User not authenticated");
+    
+    return emailPbService.getEmails(user.id, EmailFolder.SENT);
   },
 
   /**
-   * Get inbox emails from server
+   * Get inbox emails from PocketBase
    */
   async getInbox(): Promise<Email[]> {
-    const response = await fetch("/api/emails?folder=inbox");
-    const data = await response.json();
-
-    if (!data.success) {
-      throw new Error(data.error || "Failed to fetch inbox");
-    }
-
-    return data.emails;
+    const user = getCurrentUser();
+    if (!user) throw new Error("User not authenticated");
+    
+    return emailPbService.getEmails(user.id, EmailFolder.INBOX);
   },
 
   /**
@@ -141,10 +138,14 @@ export const emailClientService = {
     dateFrom?: Date;
     dateTo?: Date;
   }): Promise<{ syncId: string; message: string }> {
+    const user = getCurrentUser();
+    if (!user) throw new Error("User not authenticated");
+    
     const response = await fetch("/api/emails/sync", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        userId: user.id,
         syncType: params.syncType || "full",
         dateFrom: params.dateFrom?.toISOString(),
         dateTo: params.dateTo?.toISOString(),
@@ -164,9 +165,12 @@ export const emailClientService = {
    * Get synchronization status
    */
   async getSyncStatus(syncId?: string): Promise<any> {
+    const user = getCurrentUser();
+    if (!user) throw new Error("User not authenticated");
+    
     const url = syncId 
       ? `/api/emails/sync?syncId=${syncId}`
-      : "/api/emails/sync";
+      : `/api/emails/sync?userId=${user.id}`;
       
     const response = await fetch(url);
     const data = await response.json();

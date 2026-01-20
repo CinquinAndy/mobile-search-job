@@ -1,13 +1,41 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import PocketBase from "pocketbase";
 import { emailService } from "@/services/email.service";
-import { emailPbService } from "@/services/email-pb.service";
+import { pbAdmin } from "@/services/pocketbase.server";
+import type { Email } from "@/types/email";
+
+// Helper to convert Email to PocketBase format
+function emailToPb(email: Email, userId: string) {
+  return {
+    resend_id: email.resendId || email.id,
+    folder: email.folder,
+    from_email: email.from.email,
+    from_name: email.from.name,
+    to_emails: email.to,
+    cc_emails: email.cc || [],
+    bcc_emails: email.bcc || [],
+    subject: email.subject,
+    body_text: email.body,
+    body_html: email.html,
+    status: email.status,
+    is_read: email.isRead,
+    is_starred: email.isStarred,
+    has_attachments: email.hasAttachments,
+    sent_at: email.sentAt,
+    received_at: email.receivedAt,
+    opened_at: email.metadata?.openedAt,
+    clicked_at: email.metadata?.clickedAt,
+    thread_id: email.threadId,
+    in_reply_to: email.inReplyTo,
+    resend_metadata: email.metadata,
+    user: userId,
+  };
+}
 
 // Helper to get authenticated PocketBase instance
 async function getPbWithAuth() {
   const cookieStore = await cookies();
-  const pb = new PocketBase(process.env.NEXT_PUBLIC_POCKETBASE_URL);
+  const pb = pbAdmin; // Use admin instance for background tasks
 
   // Get auth from cookies
   const authCookie = cookieStore.get("pb_auth");
@@ -32,28 +60,38 @@ async function syncEmailsInBackground(
   },
 ) {
   const startTime = Date.now();
-
+  
   try {
     // Update sync log to running
-    await emailPbService.updateSyncLog(syncId, {
+    await pbAdmin.collection("email_sync_logs").update(syncId, {
       status: "running",
     });
 
     let emailsFetched = 0;
     let emailsCreated = 0;
-    const emailsUpdated = 0;
 
     // Fetch sent emails
     if (options.syncType === "full" || options.syncType === "sent_only") {
       console.info("[EmailSync] Fetching sent emails...");
       const sentEmails = await emailService.getSentEmails();
       emailsFetched += sentEmails.length;
-
+      
       // Save to PocketBase
       for (const email of sentEmails) {
         try {
-          await emailPbService.saveEmail(email, userId);
-          emailsCreated++;
+          const data = emailToPb(email, userId);
+          
+          // Try to find existing by resend_id
+          const existing = await pbAdmin.collection("emails").getFirstListItem(
+            `resend_id = "${email.resendId || email.id}"`,
+          ).catch(() => null);
+          
+          if (existing) {
+            await pbAdmin.collection("emails").update(existing.id, data);
+          } else {
+            await pbAdmin.collection("emails").create(data);
+            emailsCreated++;
+          }
         } catch (error) {
           console.error(`Failed to save sent email ${email.id}:`, error);
         }
@@ -66,21 +104,29 @@ async function syncEmailsInBackground(
       try {
         const receivedEmails = await emailService.getInbox();
         emailsFetched += receivedEmails.length;
-
+        
         // Save to PocketBase
         for (const email of receivedEmails) {
           try {
-            await emailPbService.saveEmail(email, userId);
-            emailsCreated++;
+            const data = emailToPb(email, userId);
+            
+            // Try to find existing by resend_id
+            const existing = await pbAdmin.collection("emails").getFirstListItem(
+              `resend_id = "${email.resendId || email.id}"`,
+            ).catch(() => null);
+            
+            if (existing) {
+              await pbAdmin.collection("emails").update(existing.id, data);
+            } else {
+              await pbAdmin.collection("emails").create(data);
+              emailsCreated++;
+            }
           } catch (error) {
             console.error(`Failed to save received email ${email.id}:`, error);
           }
         }
       } catch (error) {
-        console.warn(
-          "[EmailSync] Could not fetch received emails (normal if not configured):",
-          error,
-        );
+        console.warn("[EmailSync] Could not fetch received emails (normal if not configured):", error);
       }
     }
 
@@ -88,11 +134,10 @@ async function syncEmailsInBackground(
     const duration = Date.now() - startTime;
 
     // Update sync log to completed
-    await emailPbService.updateSyncLog(syncId, {
+    await pbAdmin.collection("email_sync_logs").update(syncId, {
       status: "completed",
       emails_fetched: emailsFetched,
       emails_created: emailsCreated,
-      emails_updated: emailsUpdated,
       completed_at: new Date().toISOString(),
       duration_ms: duration,
     });
@@ -102,9 +147,9 @@ async function syncEmailsInBackground(
     );
   } catch (error) {
     console.error(`[EmailSync] Failed sync ${syncId}:`, error);
-
+    
     // Update sync log to failed
-    await emailPbService.updateSyncLog(syncId, {
+    await pbAdmin.collection("email_sync_logs").update(syncId, {
       status: "failed",
       errors: [error instanceof Error ? error.message : "Unknown error"],
       completed_at: new Date().toISOString(),
@@ -115,35 +160,31 @@ async function syncEmailsInBackground(
 
 export async function POST(request: Request) {
   try {
-    const pb = await getPbWithAuth();
+    const body = await request.json();
+    const { syncType = "full", dateFrom, dateTo, userId } = body;
 
-    if (!pb.authStore.isValid) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 },
-      );
-    }
-
-    const userId = pb.authStore.model?.id;
     if (!userId) {
       return NextResponse.json(
-        { success: false, error: "User ID not found" },
-        { status: 401 },
+        { success: false, error: "userId required" },
+        { status: 400 },
       );
     }
 
-    const body = await request.json();
-    const { syncType = "full", dateFrom, dateTo } = body;
-
-    // Create sync log
-    const syncId = await emailPbService.createSyncLog(userId, {
+    // Create sync log using admin
+    const syncLog = await pbAdmin.collection("email_sync_logs").create({
       sync_type: syncType,
-      date_from: dateFrom ? new Date(dateFrom) : undefined,
-      date_to: dateTo ? new Date(dateTo) : undefined,
+      status: "pending",
+      date_from: dateFrom,
+      date_to: dateTo,
+      emails_fetched: 0,
+      emails_created: 0,
+      emails_updated: 0,
+      started_at: new Date().toISOString(),
+      user: userId,
     });
 
     // Start background sync (don't await)
-    syncEmailsInBackground(syncId, userId, {
+    syncEmailsInBackground(syncLog.id, userId, {
       syncType,
       dateFrom: dateFrom ? new Date(dateFrom) : undefined,
       dateTo: dateTo ? new Date(dateTo) : undefined,
@@ -154,7 +195,7 @@ export async function POST(request: Request) {
     // Return immediately with sync ID
     return NextResponse.json({
       success: true,
-      syncId,
+      syncId: syncLog.id,
       message: "Email synchronization started in background",
     });
   } catch (error) {
@@ -174,35 +215,30 @@ export async function POST(request: Request) {
  */
 export async function GET(request: Request) {
   try {
-    const pb = await getPbWithAuth();
-
-    if (!pb.authStore.isValid) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 },
-      );
-    }
-
     const { searchParams } = new URL(request.url);
     const syncId = searchParams.get("syncId");
+    const userId = searchParams.get("userId");
 
     if (syncId) {
       // Get specific sync log
-      const syncLog = await emailPbService.getSyncLog(syncId);
+      const syncLog = await pbAdmin.collection("email_sync_logs").getOne(syncId);
       return NextResponse.json({ success: true, syncLog });
     }
 
-    // Get latest sync log
-    const userId = pb.authStore.model?.id;
     if (!userId) {
       return NextResponse.json(
-        { success: false, error: "User ID not found" },
-        { status: 401 },
+        { success: false, error: "userId or syncId required" },
+        { status: 400 },
       );
     }
 
-    const latestSync = await emailPbService.getLatestSyncLog(userId);
-    return NextResponse.json({ success: true, syncLog: latestSync });
+    //Get latest sync log for user
+    const syncLog = await pbAdmin.collection("email_sync_logs").getFirstListItem(
+      `user = "${userId}"`,
+      { sort: "-created" },
+    ).catch(() => null);
+    
+    return NextResponse.json({ success: true, syncLog });
   } catch (error) {
     console.error("Failed to get sync status:", error);
     return NextResponse.json(
