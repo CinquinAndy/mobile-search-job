@@ -7,7 +7,15 @@ import {
   type DropResult,
 } from "@hello-pangea/dnd";
 import { differenceInDays, formatDistanceToNow } from "date-fns";
-import { Calendar, Clock, MoreVertical, Plus, RefreshCcw, Search, X } from "lucide-react";
+import {
+  Calendar,
+  Clock,
+  MoreVertical,
+  Plus,
+  RefreshCcw,
+  Search,
+  X,
+} from "lucide-react";
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { applicationsService } from "@/services/applications.service";
@@ -210,7 +218,10 @@ export function KanbanBoard({
             const hasMore = allAppsInColumn.length > visibleCount;
 
             return (
-              <div key={column.id} className="shrink-0 w-80 flex flex-col gap-4">
+              <div
+                key={column.id}
+                className="shrink-0 w-80 flex flex-col gap-4"
+              >
                 <div
                   className={cn(
                     "flex items-center justify-between p-3 rounded-xl border sticky top-0 z-20 backdrop-blur-md",
@@ -280,7 +291,8 @@ export function KanbanBoard({
                           className="w-full py-3 rounded-2xl border border-dashed border-border bg-card/30 text-muted-foreground text-[10px] font-black uppercase tracking-widest hover:bg-muted/50 hover:text-foreground transition-all flex items-center justify-center gap-2 mt-2"
                         >
                           <Plus className="w-3 h-3" />
-                          Voir les {allAppsInColumn.length - visibleCount} autres
+                          Voir les {allAppsInColumn.length - visibleCount}{" "}
+                          autres
                         </button>
                       )}
                     </div>

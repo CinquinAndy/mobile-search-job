@@ -1366,11 +1366,7 @@ export const syncService = {
           record.URL ||
           "";
         const email =
-          record.Email ||
-          record.email ||
-          record.Mail ||
-          record.Courriel ||
-          "";
+          record.Email || record.email || record.Mail || record.Courriel || "";
 
         let validWebsite: string | null = null;
         let domain = "";
@@ -1478,21 +1474,26 @@ export const syncService = {
           record["Date mail 1"] || record.Date || record["Date mail"];
         const csvDate = parseCsvDate(dateHeader);
 
-        const reponseValue = (
-          record.Réponse ||
-          record.Reponse ||
-          ""
-        ).toString().toUpperCase();
+        const reponseValue = (record.Réponse || record.Reponse || "")
+          .toString()
+          .toUpperCase();
         const isResponded =
           reponseValue === "TRUE" ||
           reponseValue === "OUI" ||
           reponseValue === "1";
 
         const reponseFinale =
-          record["Réponse finale"] || record.ReponseFinale || record.Feedback || "";
+          record["Réponse finale"] ||
+          record.ReponseFinale ||
+          record.Feedback ||
+          "";
         const tech = record.Tech || record.Technologies || record.Stack || "";
         const commentField =
-          record.Commentaire || record.Comment || record.Infos || record.Notes || "";
+          record.Commentaire ||
+          record.Comment ||
+          record.Infos ||
+          record.Notes ||
+          "";
 
         let newStatus: ApplicationStatus = "sent";
         if (isResponded) newStatus = "responded";

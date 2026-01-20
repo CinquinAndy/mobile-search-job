@@ -13,6 +13,7 @@ import {
   LayoutGrid,
   List,
   LogOut,
+  Mail,
   MousePointer2,
   PhoneIncoming,
   Plus,
@@ -24,6 +25,7 @@ import { syncApplicationsAction } from "@/app/actions/sync";
 import { columns } from "@/components/dashboard/columns";
 import { KanbanBoard } from "@/components/dashboard/kanban-board";
 import { NewApplicationForm } from "@/components/dashboard/new-application-form";
+import { SyncModal } from "@/components/dashboard/sync-modal";
 import { DataTable } from "@/components/ui/data-table";
 import { cn } from "@/lib/utils";
 import { applicationsService } from "@/services/applications.service";
@@ -39,6 +41,7 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [view, setView] = useState<"list" | "board">("board");
   const [showOnlyJ7, setShowOnlyJ7] = useState(false);
+  const [showSyncModal, setShowSyncModal] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -79,7 +82,7 @@ export default function Home() {
     [],
   );
 
-  const handleSync = async () => {
+  const handleSync = async (dateFrom?: Date, dateTo?: Date) => {
     if (!user?.id) {
       alert("You must be logged in to sync");
       return;
@@ -87,9 +90,12 @@ export default function Home() {
 
     setIsSyncing(true);
     try {
+      // For now, we use the existing sync without date filtering
+      // TODO: Update syncApplicationsAction to support date range
       const result = await syncApplicationsAction(user.id);
       if (result.success) {
         await loadData(true); // Silent reload after sync
+        setShowSyncModal(false);
       } else {
         alert(`Sync failed: ${result.error}`);
       }
@@ -303,9 +309,16 @@ export default function Home() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <a
+            href="/mail"
+            className="p-2.5 rounded-xl bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors border border-border"
+            title="Mail"
+          >
+            <Mail className="w-5 h-5" />
+          </a>
           <button
             type="button"
-            onClick={handleSync}
+            onClick={() => setShowSyncModal(true)}
             disabled={isSyncing}
             className="p-2.5 rounded-xl bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors border border-border disabled:opacity-50"
             title="Sync with Resend"
@@ -442,7 +455,8 @@ export default function Home() {
                 Export CSV
               </button>
               <span className="text-[10px] font-black uppercase text-muted-foreground bg-muted/50 px-3 py-1 rounded-full tracking-wider border border-border">
-                {displayedApplications.length} AFFICHÉ{displayedApplications.length > 1 ? "S" : ""}
+                {displayedApplications.length} AFFICHÉ
+                {displayedApplications.length > 1 ? "S" : ""}
               </span>
             </div>
           </div>
@@ -513,6 +527,15 @@ export default function Home() {
             />
           </div>
         </div>
+      )}
+
+      {/* Sync Modal */}
+      {showSyncModal && (
+        <SyncModal
+          onSync={handleSync}
+          onClose={() => setShowSyncModal(false)}
+          isSyncing={isSyncing}
+        />
       )}
     </div>
   );

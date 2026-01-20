@@ -192,10 +192,14 @@ export default function ApplicationDetailPage() {
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                         {event.provider} •{" "}
-                        {event.sent_at ? format(new Date(event.sent_at), "HH:mm") : "--:--"}
+                        {event.sent_at
+                          ? format(new Date(event.sent_at), "HH:mm")
+                          : "--:--"}
                       </span>
                       <span className="text-xs font-medium text-foreground/60">
-                        {event.sent_at ? format(new Date(event.sent_at), "PP") : "Unknown date"}
+                        {event.sent_at
+                          ? format(new Date(event.sent_at), "PP")
+                          : "Unknown date"}
                       </span>
                     </div>
                     <h3 className="text-sm font-bold text-foreground mb-1">

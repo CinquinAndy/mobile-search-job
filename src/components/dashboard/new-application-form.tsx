@@ -45,9 +45,13 @@ export function NewApplicationForm({
         <h2 className="text-xl font-bold text-foreground">
           Add New Application
         </h2>
-        <button type="button" onClick={onCancel} className="p-2 hover:bg-muted rounded-full transition-colors">
-					<X className="w-5 h-5 text-muted-foreground" />
-				</button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="p-2 hover:bg-muted rounded-full transition-colors"
+        >
+          <X className="w-5 h-5 text-muted-foreground" />
+        </button>
       </div>
 
       <form
@@ -61,14 +65,19 @@ export function NewApplicationForm({
         <form.Field name="companyName">
           {(field) => (
             <div>
-							<label htmlFor="companyName" className="block text-sm font-medium text-foreground mb-1.5">Company Name</label>
-							<div className="relative">
-								<Building className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-								<input
-									id="companyName"
-									value={field.state.value}
-									onChange={e => field.handleChange(e.target.value)}
-									placeholder="e.g. Google"
+              <label
+                htmlFor="companyName"
+                className="block text-sm font-medium text-foreground mb-1.5"
+              >
+                Company Name
+              </label>
+              <div className="relative">
+                <Building className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  id="companyName"
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  placeholder="e.g. Google"
                   className={cn(
                     "w-full pl-10 pr-4 py-2.5 rounded-xl bg-background border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all",
                     field.state.meta.errors.length > 0
@@ -85,14 +94,19 @@ export function NewApplicationForm({
         <form.Field name="domain">
           {(field) => (
             <div>
-							<label htmlFor="domain" className="block text-sm font-medium text-foreground mb-1.5">Company Domain</label>
-							<div className="relative">
-								<Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-								<input
-									id="domain"
-									value={field.state.value}
-									onChange={e => field.handleChange(e.target.value)}
-									placeholder="e.g. google.com"
+              <label
+                htmlFor="domain"
+                className="block text-sm font-medium text-foreground mb-1.5"
+              >
+                Company Domain
+              </label>
+              <div className="relative">
+                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  id="domain"
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  placeholder="e.g. google.com"
                   className={cn(
                     "w-full pl-10 pr-4 py-2.5 rounded-xl bg-background border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all",
                     field.state.meta.errors.length > 0
@@ -112,14 +126,19 @@ export function NewApplicationForm({
         <form.Field name="position">
           {(field) => (
             <div>
-							<label htmlFor="position" className="block text-sm font-medium text-foreground mb-1.5">Job Position</label>
-							<div className="relative">
-								<Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-								<input
-									id="position"
-									value={field.state.value}
-									onChange={e => field.handleChange(e.target.value)}
-									placeholder="e.g. Frontend Developer"
+              <label
+                htmlFor="position"
+                className="block text-sm font-medium text-foreground mb-1.5"
+              >
+                Job Position
+              </label>
+              <div className="relative">
+                <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  id="position"
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  placeholder="e.g. Frontend Developer"
                   className={cn(
                     "w-full pl-10 pr-4 py-2.5 rounded-xl bg-background border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all",
                     field.state.meta.errors.length > 0

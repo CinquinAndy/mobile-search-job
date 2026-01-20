@@ -11,7 +11,13 @@ import {
   type SortingState,
   useReactTable,
 } from "@tanstack/react-table";
-import { ChevronDown, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  X,
+} from "lucide-react";
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
@@ -286,8 +292,14 @@ export function DataTable<TData, TValue>({
       {/* Pagination Controls */}
       <div className="flex items-center justify-between px-2 py-4 border-t border-border">
         <div className="flex-1 text-sm text-muted-foreground">
-          Page <span className="font-medium text-foreground">{table.getState().pagination.pageIndex + 1}</span> of{" "}
-          <span className="font-medium text-foreground">{table.getPageCount()}</span>
+          Page{" "}
+          <span className="font-medium text-foreground">
+            {table.getState().pagination.pageIndex + 1}
+          </span>{" "}
+          of{" "}
+          <span className="font-medium text-foreground">
+            {table.getPageCount()}
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <button

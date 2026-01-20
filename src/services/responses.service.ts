@@ -123,9 +123,7 @@ export const responsesService = {
   /**
    * Map response type to application status
    */
-  getStatusFromResponseType(
-    type: ResponseType,
-  ): string | null {
+  getStatusFromResponseType(type: ResponseType): string | null {
     const mapping: Record<ResponseType, string | null> = {
       positive: "responded",
       negative: "rejected",

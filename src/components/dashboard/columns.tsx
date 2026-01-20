@@ -11,31 +11,38 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   // Resend email events
   queued: {
     label: "Queued",
-    className: "bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-400",
+    className:
+      "bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-400",
   },
   scheduled: {
     label: "Scheduled",
-    className: "bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-400",
+    className:
+      "bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-400",
   },
   sent: {
     label: "Sent",
-    className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+    className:
+      "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
   },
   delivered: {
     label: "Delivered",
-    className: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
+    className:
+      "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
   },
   opened: {
     label: "Opened",
-    className: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+    className:
+      "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
   },
   clicked: {
     label: "Clicked",
-    className: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+    className:
+      "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
   },
   delivery_delayed: {
     label: "Delayed",
-    className: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+    className:
+      "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
   },
   bounced: {
     label: "Bounced",
@@ -51,28 +58,34 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   },
   canceled: {
     label: "Canceled",
-    className: "bg-zinc-100 text-zinc-700 dark:bg-zinc-900/30 dark:text-zinc-400",
+    className:
+      "bg-zinc-100 text-zinc-700 dark:bg-zinc-900/30 dark:text-zinc-400",
   },
   suppressed: {
     label: "Suppressed",
-    className: "bg-zinc-100 text-zinc-700 dark:bg-zinc-900/30 dark:text-zinc-400",
+    className:
+      "bg-zinc-100 text-zinc-700 dark:bg-zinc-900/30 dark:text-zinc-400",
   },
   // Custom application statuses
   responded: {
     label: "Responded",
-    className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+    className:
+      "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
   },
   interview: {
     label: "Interview",
-    className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+    className:
+      "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
   },
   offer: {
     label: "Offer!",
-    className: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400",
+    className:
+      "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400",
   },
   rejected: {
     label: "Rejected",
-    className: "bg-zinc-100 text-zinc-700 dark:bg-zinc-900/30 dark:text-zinc-400",
+    className:
+      "bg-zinc-100 text-zinc-700 dark:bg-zinc-900/30 dark:text-zinc-400",
   },
 };
 
@@ -90,8 +103,10 @@ export const columns: ColumnDef<JobApplication>[] = [
       </button>
     ),
     cell: ({ row }) => {
-      const { company, position, id, lastResponseAt, lastActivityAt } = row.original;
-      const hasRecentResponse = lastResponseAt && lastActivityAt && lastResponseAt === lastActivityAt;
+      const { company, position, id, lastResponseAt, lastActivityAt } =
+        row.original;
+      const hasRecentResponse =
+        lastResponseAt && lastActivityAt && lastResponseAt === lastActivityAt;
 
       return (
         <Link href={`/applications/${id}`} className="flex flex-col group py-1">
