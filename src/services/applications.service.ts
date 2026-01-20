@@ -27,6 +27,18 @@ interface ApplicationRecord {
 export const applicationsService = {
 	async getApplications(): Promise<JobApplication[]> {
 		const pb = getClientPB()
+		
+		// Validate and refresh auth if needed
+		if (!pb.authStore.isValid) {
+			try {
+				await pb.collection('users').authRefresh()
+			} catch {
+				// Auth completely invalid, clear and return empty
+				pb.authStore.clear()
+				return []
+			}
+		}
+		
 		// No fallback here, real data only
 		const records = await pb.collection('applications').getFullList<ApplicationRecord>({
 			sort: '-created',

@@ -6,11 +6,12 @@ import {
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
+  getPaginationRowModel,
   getSortedRowModel,
   type SortingState,
   useReactTable,
 } from "@tanstack/react-table";
-import { ChevronDown, Search, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
@@ -57,7 +58,13 @@ export function DataTable<TData, TValue>({
     getSortedRowModel: getSortedRowModel(),
     onColumnFiltersChange: setColumnFilters,
     getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
     onGlobalFilterChange: setGlobalFilter,
+    initialState: {
+      pagination: {
+        pageSize: 20,
+      },
+    },
     state: {
       sorting,
       columnFilters,
@@ -223,20 +230,14 @@ export function DataTable<TData, TValue>({
                     className="px-4 py-3 border-b border-border"
                   >
                     {header.isPlaceholder ? null : (
-                      <div
+                      <button
+                        type="button"
                         className={cn(
                           header.column.getCanSort()
-                            ? "cursor-pointer select-none flex items-center gap-2 hover:text-foreground transition-colors"
+                            ? "cursor-pointer select-none flex items-center gap-2 hover:text-foreground transition-colors w-full"
                             : "",
                         )}
                         onClick={header.column.getToggleSortingHandler()}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            header.column.getToggleSortingHandler()?.(e);
-                          }
-                        }}
-                        role={header.column.getCanSort() ? "button" : undefined}
-                        tabIndex={header.column.getCanSort() ? 0 : undefined}
                       >
                         {flexRender(
                           header.column.columnDef.header,
@@ -244,7 +245,7 @@ export function DataTable<TData, TValue>({
                         )}
                         {header.column.getIsSorted() === "asc" && " ↑"}
                         {header.column.getIsSorted() === "desc" && " ↓"}
-                      </div>
+                      </button>
                     )}
                   </th>
                 ))}
@@ -280,6 +281,34 @@ export function DataTable<TData, TValue>({
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Pagination Controls */}
+      <div className="flex items-center justify-between px-2 py-4 border-t border-border">
+        <div className="flex-1 text-sm text-muted-foreground">
+          Page <span className="font-medium text-foreground">{table.getState().pagination.pageIndex + 1}</span> of{" "}
+          <span className="font-medium text-foreground">{table.getPageCount()}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-background text-xs font-medium hover:bg-muted disabled:opacity-50 transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Précédent
+          </button>
+          <button
+            type="button"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-background text-xs font-medium hover:bg-muted disabled:opacity-50 transition-colors"
+          >
+            Suivant
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -6,6 +6,7 @@ import {
   Calendar,
   CheckCircle,
   Database,
+  FileSpreadsheet,
   Inbox,
   Link,
   Mail,
@@ -19,6 +20,7 @@ import * as React from "react";
 import {
   createCompaniesAction,
   createResponsesAction,
+  importAwwwardsCsvsAction,
   linkLogsToCompaniesAction,
   reconcileApplicationStatusesAction,
   reconcileFollowUpTrackingAction,
@@ -121,34 +123,52 @@ export default function AdminPage() {
   const { user } = useAuthStore();
 
   const [syncLogsLoading, setSyncLogsLoading] = React.useState(false);
-  const [syncLogsResult, setSyncLogsResult] = React.useState<ActionResult | null>(null);
+  const [syncLogsResult, setSyncLogsResult] =
+    React.useState<ActionResult | null>(null);
 
   const [syncInboundLoading, setSyncInboundLoading] = React.useState(false);
-  const [syncInboundResult, setSyncInboundResult] = React.useState<ActionResult | null>(null);
+  const [syncInboundResult, setSyncInboundResult] =
+    React.useState<ActionResult | null>(null);
 
   const [linkCompaniesLoading, setLinkCompaniesLoading] = React.useState(false);
-  const [linkCompaniesResult, setLinkCompaniesResult] = React.useState<ActionResult | null>(null);
+  const [linkCompaniesResult, setLinkCompaniesResult] =
+    React.useState<ActionResult | null>(null);
 
-  const [createCompaniesLoading, setCreateCompaniesLoading] = React.useState(false);
-  const [createCompaniesResult, setCreateCompaniesResult] = React.useState<ActionResult | null>(null);
+  const [createCompaniesLoading, setCreateCompaniesLoading] =
+    React.useState(false);
+  const [createCompaniesResult, setCreateCompaniesResult] =
+    React.useState<ActionResult | null>(null);
 
-  const [createResponsesLoading, setCreateResponsesLoading] = React.useState(false);
-  const [createResponsesResult, setCreateResponsesResult] = React.useState<ActionResult | null>(null);
+  const [createResponsesLoading, setCreateResponsesLoading] =
+    React.useState(false);
+  const [createResponsesResult, setCreateResponsesResult] =
+    React.useState<ActionResult | null>(null);
 
   const [fullSyncLoading, setFullSyncLoading] = React.useState(false);
-  const [fullSyncResult, setFullSyncResult] = React.useState<ActionResult | null>(null);
+  const [fullSyncResult, setFullSyncResult] =
+    React.useState<ActionResult | null>(null);
 
   const [updateDatesLoading, setUpdateDatesLoading] = React.useState(false);
-  const [updateDatesResult, setUpdateDatesResult] = React.useState<ActionResult | null>(null);
+  const [updateDatesResult, setUpdateDatesResult] =
+    React.useState<ActionResult | null>(null);
 
-  const [updateStatusesLoading, setUpdateStatusesLoading] = React.useState(false);
-  const [updateStatusesResult, setUpdateStatusesResult] = React.useState<ActionResult | null>(null);
+  const [updateStatusesLoading, setUpdateStatusesLoading] =
+    React.useState(false);
+  const [updateStatusesResult, setUpdateStatusesResult] =
+    React.useState<ActionResult | null>(null);
 
   const [reconcileLoading, setReconcileLoading] = React.useState(false);
-  const [reconcileResult, setReconcileResult] = React.useState<ActionResult | null>(null);
+  const [reconcileResult, setReconcileResult] =
+    React.useState<ActionResult | null>(null);
 
-  const [reconcileFollowUpsLoading, setReconcileFollowUpsLoading] = React.useState(false);
-  const [reconcileFollowUpsResult, setReconcileFollowUpsResult] = React.useState<ActionResult | null>(null);
+  const [reconcileFollowUpsLoading, setReconcileFollowUpsLoading] =
+    React.useState(false);
+  const [reconcileFollowUpsResult, setReconcileFollowUpsResult] =
+    React.useState<ActionResult | null>(null);
+
+  const [importCsvLoading, setImportCsvLoading] = React.useState(false);
+  const [importCsvResult, setImportCsvResult] =
+    React.useState<ActionResult | null>(null);
 
   const handleSyncEmailLogs = async () => {
     if (!user?.id) return;
@@ -267,6 +287,18 @@ export default function AdminPage() {
       setReconcileFollowUpsResult(result);
     } finally {
       setReconcileFollowUpsLoading(false);
+    }
+  };
+
+  const handleImportCsvs = async () => {
+    if (!user?.id) return;
+    setImportCsvLoading(true);
+    setImportCsvResult(null);
+    try {
+      const result = await importAwwwardsCsvsAction(user.id);
+      setImportCsvResult(result);
+    } finally {
+      setImportCsvLoading(false);
     }
   };
 
@@ -407,6 +439,18 @@ export default function AdminPage() {
           buttonText="Reconcile Follow-ups"
           buttonColor="bg-indigo-500 text-white hover:bg-indigo-600"
         />
+
+        {/* Import Awwwards CSVs */}
+        <ActionCard
+          title="Import Awwwards CSVs"
+          description="Import data from historical Awwwards CSV files (Canada, Suisse, Uk, US, Autre)."
+          icon={<FileSpreadsheet className="w-5 h-5 text-emerald-500" />}
+          onClick={handleImportCsvs}
+          isLoading={importCsvLoading}
+          result={importCsvResult}
+          buttonText="Import CSVs"
+          buttonColor="bg-emerald-500 text-white hover:bg-emerald-600"
+        />
       </div>
 
       {/* Info Section */}
@@ -416,12 +460,28 @@ export default function AdminPage() {
           <div className="text-sm text-muted-foreground">
             <p className="font-medium text-foreground mb-1">How to use</p>
             <ol className="list-decimal list-inside space-y-1">
-              <li><strong>Sync Outbound</strong>: Fetches sent emails from Resend</li>
-              <li><strong>Sync Inbound</strong>: Fetches received emails from Resend</li>
-              <li><strong>Link to Companies</strong>: Links logs to existing companies</li>
-              <li><strong>Create Companies</strong>: Creates missing companies/applications</li>
-              <li><strong>Create Responses</strong>: Creates responses from inbound emails</li>
-              <li><strong>Full Sync</strong>: Runs steps 1a, 3, and 4 at once</li>
+              <li>
+                <strong>Sync Outbound</strong>: Fetches sent emails from Resend
+              </li>
+              <li>
+                <strong>Sync Inbound</strong>: Fetches received emails from
+                Resend
+              </li>
+              <li>
+                <strong>Link to Companies</strong>: Links logs to existing
+                companies
+              </li>
+              <li>
+                <strong>Create Companies</strong>: Creates missing
+                companies/applications
+              </li>
+              <li>
+                <strong>Create Responses</strong>: Creates responses from
+                inbound emails
+              </li>
+              <li>
+                <strong>Full Sync</strong>: Runs steps 1a, 3, and 4 at once
+              </li>
             </ol>
           </div>
         </div>

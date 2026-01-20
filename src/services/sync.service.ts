@@ -1,3 +1,7 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { parse } from "csv-parse/sync";
+import type { ApplicationStatus } from "@/types/application";
 import { getAdminPB } from "./pocketbase.server";
 import { type ResendEmailUpdate, resend } from "./resend.service";
 
@@ -228,7 +232,9 @@ export const syncService = {
           const createdAt = typedEmail.created_at;
 
           if (!sender) {
-            console.warn(`[SyncService] [${totalProcessed}] SKIP: Inbound email ${typedEmail.id} has no sender`);
+            console.warn(
+              `[SyncService] [${totalProcessed}] SKIP: Inbound email ${typedEmail.id} has no sender`,
+            );
             skippedCount++;
             continue;
           }
@@ -247,8 +253,10 @@ export const syncService = {
 
             // Normalize date for PocketBase
             const sentAt = normalizeDate(createdAt);
-            
-            console.info(`[SyncService] [${totalProcessed}] Creating inbound log: ${sender} -> ${recipients[0] || "unknown"} | Date: ${sentAt}`);
+
+            console.info(
+              `[SyncService] [${totalProcessed}] Creating inbound log: ${sender} -> ${recipients[0] || "unknown"} | Date: ${sentAt}`,
+            );
 
             // Create inbound email log
             await pb.collection("email_logs").create({
@@ -445,8 +453,8 @@ export const syncService = {
 
       for (const log of logs) {
         const sender = log.sender as string;
-        const subject = log.subject as string || "";
-        
+        const subject = (log.subject as string) || "";
+
         if (!sender) {
           skippedCount++;
           continue;
@@ -458,7 +466,9 @@ export const syncService = {
           continue;
         }
 
-        console.info(`[SyncService] Processing inbound log: ${sender} | Subject: ${subject.slice(0, 40)}...`);
+        console.info(
+          `[SyncService] Processing inbound log: ${sender} | Subject: ${subject.slice(0, 40)}...`,
+        );
 
         try {
           // Check if response already exists for this email log
@@ -479,7 +489,9 @@ export const syncService = {
             .catch(() => null);
 
           if (!company) {
-            console.warn(`[SyncService] SKIP: No company found for domain ${domain}`);
+            console.warn(
+              `[SyncService] SKIP: No company found for domain ${domain}`,
+            );
             skippedCount++;
             continue;
           }
@@ -506,7 +518,9 @@ export const syncService = {
           // Detect response type from subject
           const responseType = this.detectResponseType(subject);
 
-          console.info(`[SyncService] Found association: ${company.name} | App: ${application?.id || "NONE"} | Type: ${responseType}`);
+          console.info(
+            `[SyncService] Found association: ${company.name} | App: ${application?.id || "NONE"} | Type: ${responseType}`,
+          );
 
           // Create response
           await pb.collection("responses").create({
@@ -525,7 +539,7 @@ export const syncService = {
           if (application) {
             const newStatus = this.getStatusFromResponseType(responseType);
             const logDate = log.sent_at || log.created;
-            
+
             // biome-ignore lint/suspicious/noExplicitAny: PocketBase transition
             const updateData: any = {
               last_activity_at: logDate,
@@ -534,12 +548,16 @@ export const syncService = {
 
             // Only update if it's a more "advanced" status or if status is null/other
             if (newStatus && application.status !== newStatus) {
-              console.info(`[SyncService] Updating application status: ${application.status} -> ${newStatus}`);
+              console.info(
+                `[SyncService] Updating application status: ${application.status} -> ${newStatus}`,
+              );
               updateData.status = newStatus;
               applicationsUpdated++;
             }
 
-            await pb.collection("applications").update(application.id, updateData);
+            await pb
+              .collection("applications")
+              .update(application.id, updateData);
           }
 
           // Ensure email log is linked to company/application
@@ -1140,7 +1158,9 @@ export const syncService = {
         let lastResponse = app.last_response_at || null;
 
         // Check if there are any inbound logs (meaning we got a response)
-        const inboundLogs = logs.filter((log: Record<string, unknown>) => log.direction === "inbound");
+        const inboundLogs = logs.filter(
+          (log: Record<string, unknown>) => log.direction === "inbound",
+        );
         const hasInbound = inboundLogs.length > 0;
         if (hasInbound && bestScore < statusPriority.responded) {
           bestStatus = "responded";
@@ -1221,15 +1241,19 @@ export const syncService = {
       });
 
       totalCount = applications.length;
-      console.info(`[SyncService] Reconciling follow-ups for ${totalCount} applications...`);
+      console.info(
+        `[SyncService] Reconciling follow-ups for ${totalCount} applications...`,
+      );
 
       for (const app of applications) {
         // biome-ignore lint/suspicious/noExplicitAny: Expanded relations
         const logs = (app.expand?.["email_logs(application)"] as any[]) || [];
-        
+
         // Filter for outbound logs (sent emails)
         const outboundLogs = logs
-          .filter((log: Record<string, unknown>) => log.direction === "outbound")
+          .filter(
+            (log: Record<string, unknown>) => log.direction === "outbound",
+          )
           .sort((a, b) => {
             const dateA = new Date(a.sent_at || a.created).getTime();
             const dateB = new Date(b.sent_at || b.created).getTime();
@@ -1240,10 +1264,12 @@ export const syncService = {
 
         const firstLog = outboundLogs[0];
         const lastLog = outboundLogs[outboundLogs.length - 1];
-        
+
         const firstContactAt = firstLog.sent_at || firstLog.created;
-        const followUpCount = outboundLogs.length > 1 ? outboundLogs.length - 1 : 0;
-        const lastFollowUpAt = outboundLogs.length > 1 ? (lastLog.sent_at || lastLog.created) : null;
+        const followUpCount =
+          outboundLogs.length > 1 ? outboundLogs.length - 1 : 0;
+        const lastFollowUpAt =
+          outboundLogs.length > 1 ? lastLog.sent_at || lastLog.created : null;
 
         // Update if something changed
         if (
@@ -1251,7 +1277,9 @@ export const syncService = {
           app.follow_up_count !== followUpCount ||
           app.last_follow_up_at !== lastFollowUpAt
         ) {
-          console.info(`[SyncService] UPDATING follow-ups for ${app.company}: Count ${app.follow_up_count} -> ${followUpCount}`);
+          console.info(
+            `[SyncService] UPDATING follow-ups for ${app.company}: Count ${app.follow_up_count} -> ${followUpCount}`,
+          );
           await pb.collection("applications").update(app.id, {
             first_contact_at: firstContactAt,
             follow_up_count: followUpCount,
@@ -1261,11 +1289,301 @@ export const syncService = {
         }
       }
 
-      console.info(`[SyncService] Follow-up reconciliation complete. Updated ${updatedCount}/${totalCount} apps.`);
+      console.info(
+        `[SyncService] Follow-up reconciliation complete. Updated ${updatedCount}/${totalCount} apps.`,
+      );
       return { updatedCount, totalCount };
     } catch (error) {
       console.error("[SyncService] Follow-up reconciliation failed:", error);
       throw error;
     }
+  },
+
+  /**
+   * SPECIAL: Import data from Awwwards CSV files
+   */
+  async importAwwwardsCsvs(userId: string) {
+    const pb = await getAdminPB();
+    const csvFiles = [
+      "awwwards_canada_professionals - Canada.csv",
+      "awwwards_canada_professionals - Suisse.csv",
+      "awwwards_canada_professionals - Uk.csv",
+      "awwwards_canada_professionals - US.csv",
+      "awwwards_canada_professionals - Autre.csv",
+    ];
+
+    let newCompanies = 0;
+    let newApplications = 0;
+    let updatedApplications = 0;
+    let totalRows = 0;
+
+    const parseCsvDate = (
+      dateStr: string | null | undefined,
+    ): string | null => {
+      if (!dateStr || dateStr.trim() === "" || dateStr.trim() === "-")
+        return null;
+      // Format is DD/MM/YYYY
+      const parts = dateStr.split("/");
+      if (parts.length !== 3) return null;
+      try {
+        const day = Number.parseInt(parts[0]);
+        const month = Number.parseInt(parts[1]) - 1;
+        const year = Number.parseInt(parts[2]);
+        const date = new Date(year, month, day, 12, 0, 0);
+        if (Number.isNaN(date.getTime())) return null;
+        return date.toISOString();
+      } catch {
+        return null;
+      }
+    };
+
+    for (const filename of csvFiles) {
+      const filePath = path.join(process.cwd(), filename);
+      if (!fs.existsSync(filePath)) {
+        console.warn(`[SyncService] CSV file not found: ${filename}`);
+        continue;
+      }
+
+      console.info(`[SyncService] Importing ${filename}...`);
+      const fileContent = fs.readFileSync(filePath, "utf-8");
+
+      const records = parse(fileContent, {
+        columns: true,
+        skip_empty_lines: true,
+        trim: true,
+      }) as Record<string, string>[];
+
+      for (const record of records) {
+        totalRows++;
+        const name = record.Name || record.name || record.Nom;
+        if (!name || name.trim() === "" || name.trim() === "-") continue;
+
+        // Extract raw website and email (support multiple header variations across files)
+        const websiteRaw =
+          record.Website ||
+          record["Website\n"] ||
+          record.website ||
+          record.URL ||
+          "";
+        const email =
+          record.Email ||
+          record.email ||
+          record.Mail ||
+          record.Courriel ||
+          "";
+
+        let validWebsite: string | null = null;
+        let domain = "";
+
+        // Try to find a valid URL in various potential fields
+        // Some rows have "from https://..." so we extract the URL part
+        const potentialUrlFields = [
+          websiteRaw,
+          record.Infos,
+          record.Commentaire,
+        ].filter(Boolean);
+
+        for (const rawValue of potentialUrlFields) {
+          if (typeof rawValue !== "string") continue;
+
+          // Simple regex to find the first URL in the string
+          const urlMatch = rawValue.match(/https?:\/\/[^\s,]+/i);
+          const extractedUrl = urlMatch ? urlMatch[0] : null;
+
+          if (extractedUrl) {
+            try {
+              const urlObj = new URL(extractedUrl);
+              // Set validWebsite if not already found (prioritizing the Website column)
+              if (!validWebsite) validWebsite = urlObj.href;
+              // Extract domain if not already found
+              if (!domain) domain = urlObj.hostname.replace("www.", "");
+
+              // If we have both, we can stop searching
+              if (validWebsite && domain) break;
+            } catch {
+              // Not a valid URL, continue
+            }
+          }
+        }
+
+        if (!domain && email.includes("@")) {
+          domain = email.split("@")[1];
+        }
+
+        // Try to find existing company - be strict with domain, then fuzzy with name
+        let company = null;
+        if (domain) {
+          try {
+            company = await pb
+              .collection("companies")
+              .getFirstListItem(`domain="${domain}" && user="${userId}"`);
+          } catch {}
+        }
+
+        if (!company) {
+          try {
+            const normalizedName = name
+              .toLowerCase()
+              .trim()
+              .replace(/"/g, '\\"');
+            company = await pb
+              .collection("companies")
+              .getFirstListItem(`name~"${normalizedName}" && user="${userId}"`);
+          } catch {}
+        }
+
+        if (!company) {
+          try {
+            // PocketBase requires a domain. If missing, we generate one from the name.
+            const safeDomain =
+              domain ||
+              `${name
+                .toLowerCase()
+                .trim()
+                .replace(/[^a-z0-9]/g, "-")}.local`;
+
+            company = await pb.collection("companies").create({
+              name: name,
+              domain: safeDomain,
+              website: validWebsite,
+              user: userId,
+            });
+            newCompanies++;
+          } catch (createErr) {
+            // biome-ignore lint/suspicious/noExplicitAny: PocketBase error typing
+            const err = createErr as any;
+            const errorDetails = err.response?.data
+              ? JSON.stringify(err.response.data)
+              : err.message;
+            console.error(
+              `[SyncService] Failed to create company "${name}" in ${filename}:`,
+              errorDetails,
+            );
+            // Skip this record and continue
+            continue;
+          }
+        }
+
+        // Find or create application
+        let application = null;
+        try {
+          application = await pb
+            .collection("applications")
+            .getFirstListItem(`company="${company.id}" && user="${userId}"`, {
+              sort: "-created",
+            });
+        } catch {}
+
+        const dateHeader =
+          record["Date mail 1"] || record.Date || record["Date mail"];
+        const csvDate = parseCsvDate(dateHeader);
+
+        const reponseValue = (
+          record.Réponse ||
+          record.Reponse ||
+          ""
+        ).toString().toUpperCase();
+        const isResponded =
+          reponseValue === "TRUE" ||
+          reponseValue === "OUI" ||
+          reponseValue === "1";
+
+        const reponseFinale =
+          record["Réponse finale"] || record.ReponseFinale || record.Feedback || "";
+        const tech = record.Tech || record.Technologies || record.Stack || "";
+        const commentField =
+          record.Commentaire || record.Comment || record.Infos || record.Notes || "";
+
+        let newStatus: ApplicationStatus = "sent";
+        if (isResponded) newStatus = "responded";
+
+        const rejectionTerms = [
+          "refus",
+          "regret",
+          "malheureusement",
+          "unfortunately",
+          "rejected",
+          "nope",
+          "pas retenu",
+          "négatif",
+          "negatif",
+        ];
+        if (
+          rejectionTerms.some(
+            (term) =>
+              reponseFinale.toLowerCase().includes(term) ||
+              commentField.toLowerCase().includes(term),
+          )
+        ) {
+          newStatus = "rejected";
+        }
+
+        const formattedNotes = `--- IMPORT CSV (${filename}) ---\nTech: ${tech}\nComment: ${commentField}\nFinal Response: ${reponseFinale}`;
+
+        if (!application) {
+          await pb.collection("applications").create({
+            company: company.id,
+            user: userId,
+            status: newStatus,
+            sent_at: csvDate || new Date().toISOString(),
+            first_contact_at: csvDate || null,
+            last_activity_at: csvDate || new Date().toISOString(),
+            position: "Non spécifié (Import CSV)",
+            notes: formattedNotes,
+          });
+          newApplications++;
+        } else {
+          // Update only if CSV shows more progress or has missing date
+          const updates: Record<string, unknown> = {};
+
+          if (
+            csvDate &&
+            (!application.first_contact_at ||
+              new Date(csvDate) < new Date(application.first_contact_at))
+          ) {
+            updates.first_contact_at = csvDate;
+            if (
+              !application.sent_at ||
+              new Date(csvDate) < new Date(application.sent_at)
+            ) {
+              updates.sent_at = csvDate;
+            }
+          }
+
+          // Don't downgrade status
+          const statusOrder: ApplicationStatus[] = [
+            "sent",
+            "delivered",
+            "opened",
+            "clicked",
+            "responded",
+            "interview",
+            "offer",
+            "rejected",
+          ];
+          const currentIdx = statusOrder.indexOf(
+            application.status as ApplicationStatus,
+          );
+          const newIdx = statusOrder.indexOf(newStatus);
+          if (newIdx > currentIdx) {
+            updates.status = newStatus;
+          }
+
+          // Append notes if they seem new
+          if (!application.notes || !application.notes.includes(filename)) {
+            updates.notes = application.notes
+              ? `${application.notes}\n\n${formattedNotes}`
+              : formattedNotes;
+          }
+
+          if (Object.keys(updates).length > 0) {
+            await pb.collection("applications").update(application.id, updates);
+            updatedApplications++;
+          }
+        }
+      }
+    }
+
+    return { totalRows, newCompanies, newApplications, updatedApplications };
   },
 };

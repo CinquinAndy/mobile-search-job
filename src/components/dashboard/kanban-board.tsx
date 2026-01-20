@@ -1,13 +1,13 @@
 "use client";
 
-import { differenceInDays, formatDistanceToNow } from "date-fns";
 import {
-  Calendar,
-  Clock,
-  MoreVertical,
-  Plus,
-  RefreshCcw,
-} from "lucide-react";
+  DragDropContext,
+  Draggable,
+  Droppable,
+  type DropResult,
+} from "@hello-pangea/dnd";
+import { differenceInDays, formatDistanceToNow } from "date-fns";
+import { Calendar, Clock, MoreVertical, Plus, RefreshCcw, Search, X } from "lucide-react";
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { applicationsService } from "@/services/applications.service";
@@ -16,6 +16,7 @@ import type { ApplicationStatus, JobApplication } from "@/types/application";
 interface KanbanBoardProps {
   applications: JobApplication[];
   onRefresh: () => void;
+  onUpdate: (updatedApp: Partial<JobApplication> & { id: string }) => void;
 }
 
 type ColumnId =
@@ -46,7 +47,7 @@ const COLUMNS: Column[] = [
       "scheduled",
       "suppressed",
       "delivery_delayed",
-      "offer", // Grouping offer here or adding a column? User didn't specify, I'll keep it here for now
+      "offer",
     ],
     color: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
   },
@@ -78,11 +79,45 @@ const COLUMNS: Column[] = [
   },
 ];
 
-export function KanbanBoard({ applications, onRefresh }: KanbanBoardProps) {
+// Map column ID to a default status for that column when dropped
+const COLUMN_TO_STATUS: Record<ColumnId, ApplicationStatus> = {
+  contact: "sent",
+  interview: "interview",
+  rejected: "rejected",
+  rejected_later: "rejected_later",
+  rejected_after_interview: "rejected_after_interview",
+};
+
+export function KanbanBoard({
+  applications,
+  onRefresh,
+  onUpdate,
+}: KanbanBoardProps) {
   const [isUpdating, setIsUpdating] = React.useState<string | null>(null);
+  const [enabled, setEnabled] = React.useState(false);
+  const [globalSearch, setGlobalSearch] = React.useState("");
+  const [visibleCounts, setVisibleCounts] = React.useState<
+    Record<string, number>
+  >(
+    COLUMNS.reduce(
+      (acc, col) => {
+        acc[col.id] = 20;
+        return acc;
+      },
+      {} as Record<string, number>,
+    ),
+  );
+
+  // Hydration fix for @hello-pangea/dnd with Next.js
+  React.useEffect(() => {
+    setEnabled(true);
+  }, []);
 
   const handleMove = async (id: string, newStatus: ApplicationStatus) => {
+    // Optimistic update
+    onUpdate({ id, status: newStatus });
     setIsUpdating(id);
+
     try {
       await applicationsService.updateStatus(id, newStatus);
       onRefresh();
@@ -92,7 +127,17 @@ export function KanbanBoard({ applications, onRefresh }: KanbanBoardProps) {
   };
 
   const handleFollowUp = async (id: string) => {
+    const app = applications.find((a) => a.id === id);
+    if (!app) return;
+
+    // Optimistic update
+    onUpdate({
+      id,
+      followUpCount: (app.followUpCount || 0) + 1,
+      lastFollowUpAt: new Date().toISOString(),
+    });
     setIsUpdating(id);
+
     try {
       await applicationsService.incrementFollowUp(id);
       onRefresh();
@@ -101,52 +146,151 @@ export function KanbanBoard({ applications, onRefresh }: KanbanBoardProps) {
     }
   };
 
-  const getAppsInColumn = (column: Column) => {
-    return applications.filter((app) => column.statuses.includes(app.status));
+  const onDragEnd = async (result: DropResult) => {
+    const { destination, source, draggableId } = result;
+
+    if (!destination) return;
+
+    if (
+      destination.droppableId === source.droppableId &&
+      destination.index === source.index
+    ) {
+      return;
+    }
+
+    const newStatus = COLUMN_TO_STATUS[destination.droppableId as ColumnId];
+    if (newStatus) {
+      await handleMove(draggableId, newStatus);
+    }
   };
 
-  return (
-    <div className="flex gap-6 overflow-x-auto pb-6 -mx-4 px-4 md:mx-0 md:px-0 custom-scrollbar min-h-[600px]">
-      {COLUMNS.map((column) => {
-        const apps = getAppsInColumn(column);
+  const getAppsInColumn = (column: Column) => {
+    const query = globalSearch.toLowerCase();
+    return applications
+      .filter((app) => column.statuses.includes(app.status))
+      .filter((app) => {
+        if (!query) return true;
         return (
-          <div
-            key={column.id}
-            className="shrink-0 w-80 flex flex-col gap-4"
-          >
-            <div
-              className={cn(
-                "p-3 rounded-xl border flex items-center justify-between",
-                column.color,
-              )}
-            >
-              <h3 className="text-xs font-black uppercase tracking-widest text-inherit">
-                {column.title}
-              </h3>
-              <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full ring-1 ring-inset ring-black/5">
-                {apps.length}
-              </span>
-            </div>
-
-            <div className="flex flex-col gap-3 min-h-[100px]">
-              {apps.map((app) => (
-                <KanbanCard
-                  key={app.id}
-                  application={app}
-                  onMove={handleMove}
-                  onFollowUp={handleFollowUp}
-                  isLoading={isUpdating === app.id}
-                />
-              ))}
-              {apps.length === 0 && (
-                <div className="h-24 flex items-center justify-center rounded-2xl border border-dashed border-border bg-muted/30 text-muted-foreground text-[10px] uppercase font-bold tracking-wider">
-                  Vide
-                </div>
-              )}
-            </div>
-          </div>
+          app.company.toLowerCase().includes(query) ||
+          (app.position || "").toLowerCase().includes(query)
         );
-      })}
+      });
+  };
+
+  if (!enabled) return null;
+
+  return (
+    <div className="space-y-6">
+      {/* Global Kanban Search */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <input
+          placeholder="Rechercher sur tout le board..."
+          value={globalSearch}
+          onChange={(e) => setGlobalSearch(e.target.value)}
+          className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-background border border-border text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+        />
+        {globalSearch && (
+          <button
+            type="button"
+            onClick={() => setGlobalSearch("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-muted transition-colors"
+          >
+            <X className="h-3.5 w-3.5 text-muted-foreground" />
+          </button>
+        )}
+      </div>
+
+      <DragDropContext onDragEnd={onDragEnd}>
+        <div className="flex gap-6 overflow-x-auto pb-6 -mx-4 px-4 md:mx-0 md:px-0 custom-scrollbar min-h-[600px] items-start">
+          {COLUMNS.map((column) => {
+            const allAppsInColumn = getAppsInColumn(column);
+            const visibleCount = visibleCounts[column.id] || 20;
+            const apps = allAppsInColumn.slice(0, visibleCount);
+            const hasMore = allAppsInColumn.length > visibleCount;
+
+            return (
+              <div key={column.id} className="shrink-0 w-80 flex flex-col gap-4">
+                <div
+                  className={cn(
+                    "flex items-center justify-between p-3 rounded-xl border sticky top-0 z-20 backdrop-blur-md",
+                    column.color,
+                  )}
+                >
+                  <h3 className="text-xs font-black uppercase tracking-widest text-inherit">
+                    {column.title}
+                  </h3>
+                  <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full ring-1 ring-inset ring-black/5">
+                    {allAppsInColumn.length}
+                  </span>
+                </div>
+
+                <Droppable droppableId={column.id}>
+                  {(provided, snapshot) => (
+                    <div
+                      {...provided.droppableProps}
+                      ref={provided.innerRef}
+                      className={cn(
+                        "flex flex-col gap-3 min-h-[150px] rounded-2xl transition-colors p-1",
+                        snapshot.isDraggingOver && "bg-muted/30",
+                      )}
+                    >
+                      {apps.map((app, index) => (
+                        <Draggable
+                          key={app.id}
+                          draggableId={app.id}
+                          index={index}
+                        >
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                              className={cn(
+                                "transition-transform",
+                                snapshot.isDragging && "z-50",
+                              )}
+                            >
+                              <KanbanCard
+                                application={app}
+                                onMove={handleMove}
+                                onFollowUp={handleFollowUp}
+                                isLoading={isUpdating === app.id}
+                              />
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                      {allAppsInColumn.length === 0 && (
+                        <div className="h-24 flex items-center justify-center rounded-2xl border border-dashed border-border bg-muted/30 text-muted-foreground text-[10px] uppercase font-bold tracking-wider">
+                          Vide
+                        </div>
+                      )}
+
+                      {hasMore && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setVisibleCounts((prev) => ({
+                              ...prev,
+                              [column.id]: prev[column.id] + 20,
+                            }))
+                          }
+                          className="w-full py-3 rounded-2xl border border-dashed border-border bg-card/30 text-muted-foreground text-[10px] font-black uppercase tracking-widest hover:bg-muted/50 hover:text-foreground transition-all flex items-center justify-center gap-2 mt-2"
+                        >
+                          <Plus className="w-3 h-3" />
+                          Voir les {allAppsInColumn.length - visibleCount} autres
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </Droppable>
+              </div>
+            );
+          })}
+        </div>
+      </DragDropContext>
     </div>
   );
 }
@@ -182,6 +326,7 @@ function KanbanCard({
         "group bg-card p-4 rounded-2xl border border-border shadow-sm hover:shadow-md hover:border-primary/20 transition-all duration-300 relative",
         isLoading && "opacity-50 pointer-events-none",
       )}
+      style={{ zIndex: 1 }} // Ensure base z-index allows dropdown to stay above
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex flex-col gap-0.5">

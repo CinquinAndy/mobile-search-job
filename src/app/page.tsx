@@ -1,11 +1,14 @@
 "use client";
 
+import { differenceInDays } from "date-fns";
 import {
   AlertCircle,
   Award,
   CheckCircle,
   Clock,
+  Download,
   Eye,
+  Filter,
   Ghost,
   LayoutGrid,
   List,
@@ -35,26 +38,46 @@ export default function Home() {
   const [isAddingApplication, setIsAddingApplication] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [view, setView] = useState<"list" | "board">("board");
+  const [showOnlyJ7, setShowOnlyJ7] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const data = await applicationsService.getApplications();
-      setApplications(data);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const loadData = useCallback(
+    async (silent = false) => {
+      if (!silent) setIsLoading(true);
+      try {
+        const data = await applicationsService.getApplications();
+        setApplications(data);
+
+        // If data is empty and we have no user, session likely expired
+        if (data.length === 0 && !user) {
+          window.location.href = "/sign-in";
+        }
+      } finally {
+        if (!silent) setIsLoading(false);
+      }
+    },
+    [user],
+  );
 
   useEffect(() => {
     if (mounted) {
       loadData();
     }
   }, [loadData, mounted]);
+
+  const handleUpdateApplication = useCallback(
+    (updatedApp: Partial<JobApplication> & { id: string }) => {
+      setApplications((prev) =>
+        prev.map((app) =>
+          app.id === updatedApp.id ? { ...app, ...updatedApp } : app,
+        ),
+      );
+    },
+    [],
+  );
 
   const handleSync = async () => {
     if (!user?.id) {
@@ -66,13 +89,84 @@ export default function Home() {
     try {
       const result = await syncApplicationsAction(user.id);
       if (result.success) {
-        await loadData();
+        await loadData(true); // Silent reload after sync
       } else {
         alert(`Sync failed: ${result.error}`);
       }
     } finally {
       setIsSyncing(false);
     }
+  };
+
+  // Filter applications that are 7+ days old without positive response
+  const j7Applications = useMemo(() => {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    return applications.filter((app) => {
+      // Only include apps in "waiting" statuses
+      if (
+        ![
+          "sent",
+          "delivered",
+          "opened",
+          "clicked",
+          "queued",
+          "scheduled",
+          "delivery_delayed",
+        ].includes(app.status)
+      ) {
+        return false;
+      }
+      const contactDate = new Date(app.firstContactAt || app.sentAt);
+      return contactDate < sevenDaysAgo;
+    });
+  }, [applications]);
+
+  const displayedApplications = showOnlyJ7 ? j7Applications : applications;
+
+  const exportToCsv = () => {
+    const dataToExport = j7Applications;
+
+    if (dataToExport.length === 0) {
+      alert("Aucune entreprise J+7 à exporter");
+      return;
+    }
+
+    const headers = [
+      "Entreprise",
+      "Poste",
+      "Statut",
+      "Premier Contact",
+      "Jours",
+    ];
+    const rows = dataToExport.map((app) => {
+      const days = differenceInDays(
+        new Date(),
+        new Date(app.firstContactAt || app.sentAt),
+      );
+      return [
+        app.company,
+        app.position || "Non spécifié",
+        app.status,
+        new Date(app.firstContactAt || app.sentAt).toLocaleDateString("fr-FR"),
+        days.toString(),
+      ];
+    });
+
+    const csvContent = [headers, ...rows]
+      .map((row) =>
+        row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","),
+      )
+      .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `relances_j7_${new Date().toISOString().split("T")[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const statGroups = useMemo(() => {
@@ -347,7 +441,11 @@ export default function Home() {
               </div>
             )
           ) : view === "board" ? (
-            <KanbanBoard applications={applications} onRefresh={loadData} />
+            <KanbanBoard
+              applications={applications}
+              onRefresh={() => loadData(true)}
+              onUpdate={handleUpdateApplication}
+            />
           ) : (
             <DataTable
               columns={columns}
