@@ -418,9 +418,33 @@ export default function Home() {
                 </button>
               </div>
             </div>
-            <span className="text-[10px] font-black uppercase text-muted-foreground bg-muted/50 px-3 py-1 rounded-full tracking-wider border border-border">
-              {applications.length} TOTAL
-            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowOnlyJ7(!showOnlyJ7)}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border",
+                  showOnlyJ7
+                    ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                    : "bg-muted text-muted-foreground border-border hover:text-foreground",
+                )}
+              >
+                <Filter className="w-3.5 h-3.5" />
+                J+7 ({j7Applications.length})
+              </button>
+              <button
+                type="button"
+                onClick={exportToCsv}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 text-xs font-bold hover:bg-emerald-500/20 transition-all"
+                title="Exporter les entreprises J+7 en CSV"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export CSV
+              </button>
+              <span className="text-[10px] font-black uppercase text-muted-foreground bg-muted/50 px-3 py-1 rounded-full tracking-wider border border-border">
+                {displayedApplications.length} AFFICHÉ{displayedApplications.length > 1 ? "S" : ""}
+              </span>
+            </div>
           </div>
 
           {isLoading ? (
@@ -442,14 +466,14 @@ export default function Home() {
             )
           ) : view === "board" ? (
             <KanbanBoard
-              applications={applications}
+              applications={displayedApplications}
               onRefresh={() => loadData(true)}
               onUpdate={handleUpdateApplication}
             />
           ) : (
             <DataTable
               columns={columns}
-              data={applications}
+              data={displayedApplications}
               searchPlaceholder="Rechercher une entreprise..."
               statusOptions={[
                 "sent",
