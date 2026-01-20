@@ -132,4 +132,49 @@ export const emailClientService = {
 
     return data.result;
   },
+
+  /**
+   * Trigger background email synchronization
+   */
+  async syncEmails(params: {
+    syncType?: "full" | "sent_only" | "received_only";
+    dateFrom?: Date;
+    dateTo?: Date;
+  }): Promise<{ syncId: string; message: string }> {
+    const response = await fetch("/api/emails/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        syncType: params.syncType || "full",
+        dateFrom: params.dateFrom?.toISOString(),
+        dateTo: params.dateTo?.toISOString(),
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!data.success) {
+      throw new Error(data.error || "Failed to start synchronization");
+    }
+
+    return { syncId: data.syncId, message: data.message };
+  },
+
+  /**
+   * Get synchronization status
+   */
+  async getSyncStatus(syncId?: string): Promise<any> {
+    const url = syncId 
+      ? `/api/emails/sync?syncId=${syncId}`
+      : "/api/emails/sync";
+      
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (!data.success) {
+      throw new Error(data.error || "Failed to get sync status");
+    }
+
+    return data.syncLog;
+  },
 };

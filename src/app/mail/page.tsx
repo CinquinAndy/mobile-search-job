@@ -77,12 +77,50 @@ export default function MailPage() {
     loadSignatures();
   }, [loadEmails, loadTemplates, loadSignatures]);
 
-  // Sync emails
+  // Sync emails with background polling
   const handleSync = async () => {
     setIsSyncing(true);
     try {
-      await loadEmails();
-    } finally {
+      // Start background sync
+      const { syncId, message } = await emailClientService.syncEmails({
+        syncType: "full",
+      });
+      
+      console.log(message, "Sync ID:", syncId);
+      
+      // Poll for sync completion
+      const pollInterval = setInterval(async () => {
+        try {
+          const syncLog = await emailClientService.getSyncStatus(syncId);
+          
+          if (syncLog?.status === "completed") {
+            clearInterval(pollInterval);
+            // Reload emails from PocketBase
+            await loadEmails();
+            setIsSyncing(false);
+            console.log("Sync completed:", syncLog);
+          } else if (syncLog?.status === "failed") {
+            clearInterval(pollInterval);
+            setIsSyncing(false);
+            console.error("Sync failed:", syncLog.errors);
+            alert("La synchronisation a échoué. Vérifiez la console.");
+          }
+        } catch (error) {
+          console.error("Error checking sync status:", error);
+        }
+      }, 2000); // Poll every 2 seconds
+      
+      // Timeout after 2 minutes
+      setTimeout(() => {
+        clearInterval(pollInterval);
+        if (isSyncing) {
+          setIsSyncing(false);
+          alert("La synchronisation prend trop de temps. Elle continue en arrière-plan.");
+        }
+      }, 120000);
+    } catch (error) {
+      console.error("Failed to start sync:", error);
+      alert("Impossible de démarrer la synchronisation.");
       setIsSyncing(false);
     }
   };
