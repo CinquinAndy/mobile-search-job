@@ -70,6 +70,7 @@ export const resendService = {
     bcc?: string | string[];
     replyTo?: string;
     tags?: { name: string; value: string }[];
+    attachments?: Array<{ filename: string; content: string }>;
   }) {
     if (!resend) throw new Error("Resend client not initialized");
 
@@ -83,6 +84,7 @@ export const resendService = {
       bcc: params.bcc,
       replyTo: params.replyTo,
       tags: params.tags,
+      attachments: params.attachments,
     });
 
     if (response.error) {

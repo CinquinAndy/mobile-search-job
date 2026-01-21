@@ -55,6 +55,8 @@ export const emailClientService = {
     text: string;
     html?: string;
     useProfessionalDesign?: boolean;
+    attachCV?: boolean;
+    userId?: string;
   }): Promise<{ id: string }> {
     const response = await fetch("/api/emails", {
       method: "POST",
@@ -68,6 +70,8 @@ export const emailClientService = {
         text: params.text,
         html: params.html,
         useProfessionalDesign: params.useProfessionalDesign,
+        attachCV: params.attachCV,
+        userId: params.userId,
       }),
     });
 

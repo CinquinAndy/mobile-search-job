@@ -16,6 +16,10 @@ function formatPbDate(dateStr?: string | null): string | null {
 
 // Helper to convert Email to PocketBase format
 function emailToPb(email: Email, userId: string) {
+  // Truncate body_text to 4900 chars to avoid PocketBase validation limit
+  const bodyText = email.body && email.body.length > 4900 ? 
+    email.body.substring(0, 4900) + "..." : email.body;
+
   return {
     resend_id: email.resendId || email.id,
     folder: email.folder,
@@ -25,7 +29,7 @@ function emailToPb(email: Email, userId: string) {
     cc_emails: email.cc || [],
     bcc_emails: email.bcc || [],
     subject: email.subject,
-    body_text: email.body,
+    body_text: bodyText,
     body_html: email.html,
     status: email.status,
     is_read: email.isRead,
@@ -81,7 +85,7 @@ async function syncEmailsInBackground(
           
           // Try to find existing by resend_id
           const existing = await pbAdmin.collection("emails").getFirstListItem(
-            `resend_id = "${email.resendId || email.id}"`,
+            `resend_id = "${email.resendId || email.id}" && user = "${userId}"`,
           ).catch(() => null);
           
           if (existing) {
@@ -91,8 +95,8 @@ async function syncEmailsInBackground(
             emailsCreated++;
           }
         } catch (error: unknown) {
-          const err = error as { response?: { data?: unknown } };
-          const detail = err.response ? JSON.stringify(err.response.data || err.response) : (error instanceof Error ? error.message : String(error));
+          const err = error as any;
+          const detail = err.response ? JSON.stringify(err.response, null, 2) : (error instanceof Error ? error.message : String(error));
           console.error(`Failed to save sent email ${email.id}:`, detail);
         }
       }
@@ -112,7 +116,7 @@ async function syncEmailsInBackground(
             
             // Try to find existing by resend_id
             const existing = await pbAdmin.collection("emails").getFirstListItem(
-              `resend_id = "${email.resendId || email.id}"`,
+              `resend_id = "${email.resendId || email.id}" && user = "${userId}"`,
             ).catch(() => null);
             
             if (existing) {
@@ -122,8 +126,8 @@ async function syncEmailsInBackground(
               emailsCreated++;
             }
           } catch (error: unknown) {
-            const err = error as { response?: { data?: unknown } };
-            const detail = err.response ? JSON.stringify(err.response.data || err.response) : (error instanceof Error ? error.message : String(error));
+            const err = error as any;
+            const detail = err.response ? JSON.stringify(err.response, null, 2) : (error instanceof Error ? error.message : String(error));
             console.error(`Failed to save received email ${email.id}:`, detail);
           }
         }
@@ -147,9 +151,9 @@ async function syncEmailsInBackground(
     console.info(
       `[EmailSync] Completed sync ${syncId}: ${emailsFetched} fetched, ${emailsCreated} created in ${duration}ms`,
     );
-  } catch (error: unknown) {
-    const err = error as { response?: { data?: unknown } };
-    const detail = err.response ? JSON.stringify(err.response.data || err.response) : (error instanceof Error ? error.message : String(error));
+    } catch (error: unknown) {
+    const err = error as any;
+    const detail = err.response ? JSON.stringify(err.response, null, 2) : (error instanceof Error ? error.message : String(error));
     console.error(`[EmailSync] Failed sync ${syncId}:`, detail);
     
     // Update sync log to failed
@@ -158,7 +162,7 @@ async function syncEmailsInBackground(
       errors: [detail],
       completed_at: new Date().toISOString(),
       duration_ms: Date.now() - startTime,
-    });
+    }).catch(e => console.error("Failed to update sync log to failed status:", e));
   }
 }
 

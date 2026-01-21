@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { emailClientService } from "@/services/email-client.service";
 import { signatureService } from "@/services/signature.service";
 import { templateService } from "@/services/template.service";
+import { getCurrentUser } from "@/services/pocketbase.client";
 import type { Email, EmailSignature, EmailTemplate } from "@/types/email";
 import { EmailFolder } from "@/types/email";
 
@@ -230,8 +231,11 @@ export default function MailPage() {
     subject: string;
     body: string;
     html?: string;
+    useProfessionalDesign?: boolean;
+    attachCV?: boolean;
   }) => {
     try {
+      const user = getCurrentUser();
       await emailClientService.sendEmail({
         to: params.to,
         cc: params.cc,
@@ -239,6 +243,9 @@ export default function MailPage() {
         subject: params.subject,
         text: params.body,
         html: params.html,
+        useProfessionalDesign: params.useProfessionalDesign,
+        attachCV: params.attachCV,
+        userId: user?.id,
       });
 
       // Refresh emails after sending

@@ -59,6 +59,10 @@ function pbToEmail(record: any): Email {
 
 // Helper to convert our Email type to PocketBase format
 function emailToPb(email: Email, userId: string) {
+  // Truncate body_text to 4900 chars to avoid PocketBase validation limit
+  const bodyText = email.body && email.body.length > 4900 ? 
+    email.body.substring(0, 4900) + "..." : email.body;
+
   return {
     resend_id: email.resendId || email.id,
     folder: email.folder,
@@ -68,7 +72,7 @@ function emailToPb(email: Email, userId: string) {
     cc_emails: email.cc || [],
     bcc_emails: email.bcc || [],
     subject: email.subject,
-    body_text: email.body,
+    body_text: bodyText,
     body_html: email.html,
     status: email.status,
     is_read: email.isRead,
@@ -138,15 +142,23 @@ export const emailPbService = {
       const content = await fetchEmailContentThrottled(resendId, emailType);
       
       // 3. Update PocketBase with the content
+      // Truncate body_text to 4900 chars to avoid PocketBase 5000 char validation limit
+      const bodyText = content.text ? 
+        (content.text.length > 4900 ? content.text.substring(0, 4900) + "..." : content.text) 
+        : content.text;
+
       await getPb().collection("emails").update(emailId, {
         body_html: content.html,
-        body_text: content.text,
+        body_text: bodyText,
       });
 
       console.info(`[EmailPB] Content cached for email ${resendId}`);
 
       return content;
-    } catch (error) {
+    } catch (error: any) {
+      if (error.response?.data) {
+        console.error(`[EmailPB] Validation failed for email ${emailId}:`, JSON.stringify(error.response.data, null, 2));
+      }
       console.error(`Failed to fetch email content for ${emailId}:`, error);
       return {};
     }
@@ -312,7 +324,7 @@ export const emailPbService = {
         .collection("email_sync_logs")
         .getFirstListItem(`user = "${userId}"`, { sort: "-created" });
 
-      return record as EmailSyncLog;
+      return record as unknown as EmailSyncLog;
     } catch (error) {
       return null;
     }
@@ -324,7 +336,7 @@ export const emailPbService = {
   async getSyncLog(id: string): Promise<EmailSyncLog | null> {
     try {
       const record = await getPb().collection("email_sync_logs").getOne(id);
-      return record as EmailSyncLog;
+      return record as unknown as EmailSyncLog;
     } catch (error) {
       return null;
     }

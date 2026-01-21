@@ -79,7 +79,11 @@ export async function POST(request: Request) {
     const { action, ...params } = body;
 
     if (action === "send") {
-      const result = await emailService.sendEmail(params);
+      const { userId, ...sendParams } = params;
+      const result = await emailService.sendEmail({
+        ...sendParams,
+        userId,
+      });
       return NextResponse.json({ success: true, result });
     }
 

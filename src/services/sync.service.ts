@@ -145,7 +145,7 @@ export const syncService = {
             try {
               existingLog = await pb
                 .collection("email_logs")
-                .getFirstListItem(`external_id="${email.id}"`);
+                .getFirstListItem(`external_id="${email.id}" && user="${userId}"`);
             } catch {
               // Not found
             }
@@ -175,8 +175,8 @@ export const syncService = {
               createdCount++;
             }
           } catch (err: unknown) {
-            const error = err as { response?: { data?: unknown }; message?: string };
-            const detail = error.response ? JSON.stringify(error.response.data || error.response) : (error.message || String(err));
+            const error = err as any;
+            const detail = error.response ? JSON.stringify(error.response, null, 2) : (error.message || String(err));
             console.error(
               `[SyncService] Failed to sync email ${email.id}:`,
               detail,
@@ -290,7 +290,7 @@ export const syncService = {
             // Check if already exists
             const existingLog = await pb
               .collection("email_logs")
-              .getFirstListItem(`external_id="${typedEmail.id}"`)
+              .getFirstListItem(`external_id="${typedEmail.id}" && user="${userId}"`)
               .catch(() => null);
 
             if (existingLog) {
@@ -333,8 +333,8 @@ export const syncService = {
             });
             createdCount++;
           } catch (err: unknown) {
-            const error = err as { response?: { data?: unknown }; message?: string };
-            const detail = error.response ? JSON.stringify(error.response.data || error.response) : (error.message || String(err));
+            const error = err as any;
+            const detail = error.response ? JSON.stringify(error.response, null, 2) : (error.message || String(err));
             console.error(
               `[SyncService] [${totalProcessed}] Failed to sync inbound email ${typedEmail.id}:`,
               detail,

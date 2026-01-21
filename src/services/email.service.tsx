@@ -8,6 +8,7 @@ import type {
 } from "@/types/email";
 import { EmailFolder, EmailStatus } from "@/types/email";
 import { resendService } from "./resend.service";
+import { emailPbService } from "./email-pb.service";
 
 /**
  * Email service for managing emails, drafts, and email operations
@@ -48,11 +49,11 @@ function convertResendEmail(
       email: fromInfo.email,
       name: fromInfo.name,
     },
-    to: resendEmail.to.map((toStr) => {
+    to: (resendEmail.to || []).map((toStr) => {
       const info = parseFullEmailString(toStr);
       return { email: info.email, name: info.name };
     }),
-    subject: resendEmail.subject,
+    subject: resendEmail.subject || "(No Subject)",
     body: resendEmail.text || "",
     html: resendEmail.html || undefined,
     status: (resendEmail.status as EmailStatus) || EmailStatus.DELIVERED,
@@ -132,6 +133,7 @@ export const emailService = {
     try {
       let finalHtml = params.html;
       let finalText = params.text;
+      const finalAttachments = params.attachments ? [...params.attachments] : [];
 
       if (params.useProfessionalDesign && params.text) {
         const { GeneralTemplate } = await import("@/emails/GeneralTemplate");
@@ -140,6 +142,25 @@ export const emailService = {
         );
         finalHtml = html;
         finalText = text;
+      }
+
+      // Handle CV attachment
+      if (params.attachCV) {
+        try {
+          const fs = await import("node:fs/promises");
+          const path = await import("node:path");
+          const cvPath = path.join(process.cwd(), "EN_CvAndy-v15_compressed.pdf");
+          const cvBuffer = await fs.readFile(cvPath);
+          const cvBase64 = cvBuffer.toString("base64");
+
+          finalAttachments.push({
+            filename: "CV_Andy_Cinquin.pdf",
+            content: cvBase64,
+          });
+        } catch (cvError) {
+          console.error("Failed to attach CV:", cvError);
+          // Continue anyway, but maybe log this better
+        }
       }
 
       const result = await resendService.sendEmail({
@@ -152,10 +173,56 @@ export const emailService = {
         bcc: params.bcc,
         replyTo: params.replyTo,
         tags: params.tags,
+        attachments: finalAttachments.length > 0 ? finalAttachments : undefined,
       });
 
       if (!result?.id) {
         throw new Error("Failed to send email - no ID returned");
+      }
+
+      // If userId is provided, sync the email back to PocketBase immediately
+      if (params.userId) {
+        try {
+          // Construct the email object for saving
+          const sentEmail: Email = {
+            id: result.id,
+            resendId: result.id,
+            from: {
+              email: params.from || "contact@andy-cinquin.com",
+              name: "Andy Cinquin", // Default name for sent emails
+            },
+            to: Array.isArray(params.to)
+              ? params.to.map((e) => parseFullEmailString(e))
+              : [parseFullEmailString(params.to)],
+            cc: params.cc
+              ? Array.isArray(params.cc)
+                ? params.cc.map((e) => parseFullEmailString(e))
+                : [parseFullEmailString(params.cc)]
+              : [],
+            bcc: params.bcc
+              ? Array.isArray(params.bcc)
+                ? params.bcc.map((e) => parseFullEmailString(e))
+                : [parseFullEmailString(params.bcc)]
+              : [],
+            subject: params.subject,
+            body: params.text || "",
+            html: params.html,
+            status: EmailStatus.SENT,
+            folder: EmailFolder.SENT,
+            isRead: true,
+            isStarred: false,
+            hasAttachments: finalAttachments.length > 0,
+            sentAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+
+          await emailPbService.saveEmail(sentEmail, params.userId);
+          console.info(`[EmailService] Instant sync: Email ${result.id} saved to PocketBase`);
+        } catch (syncError) {
+          console.error(`[EmailService] Failed to perform instant sync for ${result.id}:`, syncError);
+          // Don't fail the whole request if sync fails, but log it
+        }
       }
 
       return { id: result.id };

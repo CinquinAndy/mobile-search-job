@@ -25,6 +25,7 @@ interface EmailComposerProps {
     body: string;
     html?: string;
     useProfessionalDesign?: boolean;
+    attachCV?: boolean;
   }) => void | Promise<void>;
   onSaveDraft?: (params: {
     to: string[];
@@ -67,6 +68,7 @@ export function EmailComposer({
     defaultSignature?.id || "",
   );
   const [useProfessionalDesign, setUseProfessionalDesign] = useState(true);
+  const [attachCV, setAttachCV] = useState(false);
 
   const handleTemplateChange = (templateId: string) => {
     setSelectedTemplate(templateId);
@@ -134,6 +136,7 @@ export function EmailComposer({
         subject: subject.trim(),
         body: finalBody,
         useProfessionalDesign,
+        attachCV,
       });
       onClose();
     } catch (error) {
@@ -380,6 +383,23 @@ export function EmailComposer({
             className="text-xs font-bold text-primary uppercase tracking-wider cursor-pointer"
           >
             Use Professional React Email Design
+          </label>
+        </div>
+
+        {/* Attach CV Toggle */}
+        <div className="flex items-center gap-2 p-2 bg-secondary/20 rounded-lg border border-border">
+          <input
+            id="attach-cv"
+            type="checkbox"
+            checked={attachCV}
+            onChange={(e) => setAttachCV(e.target.checked)}
+            className="w-4 h-4 text-primary rounded border-border focus:ring-primary"
+          />
+          <label
+            htmlFor="attach-cv"
+            className="text-xs font-bold text-foreground uppercase tracking-wider cursor-pointer"
+          >
+            Attach CV (v15 compressed)
           </label>
         </div>
       </div>

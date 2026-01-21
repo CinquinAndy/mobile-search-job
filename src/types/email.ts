@@ -135,6 +135,9 @@ export interface SendEmailParams {
   replyTo?: string;
   tags?: { name: string; value: string }[];
   useProfessionalDesign?: boolean;
+  attachCV?: boolean;
+  attachments?: Array<{ filename: string; content: string }>;
+  userId?: string; // ID of the user sending the email (for instant sync)
 }
 
 // Helper type for template variable substitution
