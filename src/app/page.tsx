@@ -82,7 +82,11 @@ export default function Home() {
     [],
   );
 
-  const handleSync = async (dateFrom?: Date, dateTo?: Date) => {
+  const handleSync = async (params: {
+    syncType?: "full" | "sent_only" | "received_only";
+    dateFrom?: Date;
+    dateTo?: Date;
+  } = {}) => {
     if (!user?.id) {
       alert("You must be logged in to sync");
       return;
@@ -90,9 +94,7 @@ export default function Home() {
 
     setIsSyncing(true);
     try {
-      // For now, we use the existing sync without date filtering
-      // TODO: Update syncApplicationsAction to support date range
-      const result = await syncApplicationsAction(user.id);
+      const result = await syncApplicationsAction(user.id, params);
       if (result.success) {
         await loadData(true); // Silent reload after sync
         setShowSyncModal(false);
@@ -135,16 +137,16 @@ export default function Home() {
     const dataToExport = j7Applications;
 
     if (dataToExport.length === 0) {
-      alert("Aucune entreprise J+7 à exporter");
+      alert("No J+7 companies to export");
       return;
     }
 
     const headers = [
-      "Entreprise",
-      "Poste",
-      "Statut",
-      "Premier Contact",
-      "Jours",
+      "Company",
+      "Position",
+      "Status",
+      "First Contact",
+      "Days",
     ];
     const rows = dataToExport.map((app) => {
       const days = differenceInDays(
@@ -153,9 +155,9 @@ export default function Home() {
       );
       return [
         app.company,
-        app.position || "Non spécifié",
+        app.position || "Not specified",
         app.status,
-        new Date(app.firstContactAt || app.sentAt).toLocaleDateString("fr-FR"),
+        new Date(app.firstContactAt || app.sentAt).toLocaleDateString("en-US"),
         days.toString(),
       ];
     });
@@ -170,7 +172,7 @@ export default function Home() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `relances_j7_${new Date().toISOString().split("T")[0]}.csv`;
+    link.download = `follow_ups_j7_${new Date().toISOString().split("T")[0]}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -400,7 +402,7 @@ export default function Home() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <h2 className="text-lg font-bold text-foreground tracking-tight">
-                Candidatures
+                Applications
               </h2>
               <div className="flex bg-muted p-1 rounded-lg">
                 <button
@@ -449,14 +451,13 @@ export default function Home() {
                 type="button"
                 onClick={exportToCsv}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 text-xs font-bold hover:bg-emerald-500/20 transition-all"
-                title="Exporter les entreprises J+7 en CSV"
+                title="Export J+7 companies to CSV"
               >
                 <Download className="w-3.5 h-3.5" />
                 Export CSV
               </button>
               <span className="text-[10px] font-black uppercase text-muted-foreground bg-muted/50 px-3 py-1 rounded-full tracking-wider border border-border">
-                {displayedApplications.length} AFFICHÉ
-                {displayedApplications.length > 1 ? "S" : ""}
+                {displayedApplications.length} DISPLAYED
               </span>
             </div>
           </div>
@@ -474,7 +475,7 @@ export default function Home() {
             ) : (
               <div className="h-64 flex items-center justify-center bg-card rounded-2xl border border-dashed border-border">
                 <div className="animate-pulse text-muted-foreground text-sm uppercase font-black tracking-widest">
-                  chargement...
+                  loading...
                 </div>
               </div>
             )
@@ -488,7 +489,7 @@ export default function Home() {
             <DataTable
               columns={columns}
               data={displayedApplications}
-              searchPlaceholder="Rechercher une entreprise..."
+              searchPlaceholder="Search for a company..."
               statusOptions={[
                 "sent",
                 "delivered",
@@ -532,7 +533,7 @@ export default function Home() {
       {/* Sync Modal */}
       {showSyncModal && (
         <SyncModal
-          onSync={handleSync}
+          onSync={(params) => handleSync(params)}
           onClose={() => setShowSyncModal(false)}
           isSyncing={isSyncing}
         />

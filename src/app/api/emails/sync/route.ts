@@ -1,8 +1,18 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { emailService } from "@/services/email.service";
 import { pbAdmin } from "@/services/pocketbase.server";
 import type { Email } from "@/types/email";
+
+// Helper to ensure date is valid or null for PocketBase
+function formatPbDate(dateStr?: string | null): string | null {
+  if (!dateStr || dateStr.trim() === "") return null;
+  try {
+    const date = new Date(dateStr);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  } catch {
+    return null;
+  }
+}
 
 // Helper to convert Email to PocketBase format
 function emailToPb(email: Email, userId: string) {
@@ -10,7 +20,7 @@ function emailToPb(email: Email, userId: string) {
     resend_id: email.resendId || email.id,
     folder: email.folder,
     from_email: email.from.email,
-    from_name: email.from.name,
+    from_name: email.from.name || "",
     to_emails: email.to,
     cc_emails: email.cc || [],
     bcc_emails: email.bcc || [],
@@ -21,10 +31,10 @@ function emailToPb(email: Email, userId: string) {
     is_read: email.isRead,
     is_starred: email.isStarred,
     has_attachments: email.hasAttachments,
-    sent_at: email.sentAt,
-    received_at: email.receivedAt,
-    opened_at: email.metadata?.openedAt,
-    clicked_at: email.metadata?.clickedAt,
+    sent_at: formatPbDate(email.sentAt),
+    received_at: formatPbDate(email.receivedAt),
+    opened_at: formatPbDate(email.metadata?.openedAt),
+    clicked_at: formatPbDate(email.metadata?.clickedAt),
     thread_id: email.threadId,
     in_reply_to: email.inReplyTo,
     resend_metadata: email.metadata,
@@ -32,19 +42,7 @@ function emailToPb(email: Email, userId: string) {
   };
 }
 
-// Helper to get authenticated PocketBase instance
-async function getPbWithAuth() {
-  const cookieStore = await cookies();
-  const pb = pbAdmin; // Use admin instance for background tasks
 
-  // Get auth from cookies
-  const authCookie = cookieStore.get("pb_auth");
-  if (authCookie?.value) {
-    pb.authStore.loadFromCookie(authCookie.value);
-  }
-
-  return pb;
-}
 
 /**
  * Background email synchronization function
@@ -73,7 +71,7 @@ async function syncEmailsInBackground(
     // Fetch sent emails
     if (options.syncType === "full" || options.syncType === "sent_only") {
       console.info("[EmailSync] Fetching sent emails...");
-      const sentEmails = await emailService.getSentEmails();
+      const sentEmails = await emailService.getSentEmails(options.dateFrom);
       emailsFetched += sentEmails.length;
       
       // Save to PocketBase
@@ -92,8 +90,10 @@ async function syncEmailsInBackground(
             await pbAdmin.collection("emails").create(data);
             emailsCreated++;
           }
-        } catch (error) {
-          console.error(`Failed to save sent email ${email.id}:`, error);
+        } catch (error: unknown) {
+          const err = error as { response?: { data?: unknown } };
+          const detail = err.response ? JSON.stringify(err.response.data || err.response) : (error instanceof Error ? error.message : String(error));
+          console.error(`Failed to save sent email ${email.id}:`, detail);
         }
       }
     }
@@ -102,7 +102,7 @@ async function syncEmailsInBackground(
     if (options.syncType === "full" || options.syncType === "received_only") {
       console.info("[EmailSync] Fetching received emails...");
       try {
-        const receivedEmails = await emailService.getInbox();
+        const receivedEmails = await emailService.getInbox(options.dateFrom);
         emailsFetched += receivedEmails.length;
         
         // Save to PocketBase
@@ -121,8 +121,10 @@ async function syncEmailsInBackground(
               await pbAdmin.collection("emails").create(data);
               emailsCreated++;
             }
-          } catch (error) {
-            console.error(`Failed to save received email ${email.id}:`, error);
+          } catch (error: unknown) {
+            const err = error as { response?: { data?: unknown } };
+            const detail = err.response ? JSON.stringify(err.response.data || err.response) : (error instanceof Error ? error.message : String(error));
+            console.error(`Failed to save received email ${email.id}:`, detail);
           }
         }
       } catch (error) {
@@ -145,13 +147,15 @@ async function syncEmailsInBackground(
     console.info(
       `[EmailSync] Completed sync ${syncId}: ${emailsFetched} fetched, ${emailsCreated} created in ${duration}ms`,
     );
-  } catch (error) {
-    console.error(`[EmailSync] Failed sync ${syncId}:`, error);
+  } catch (error: unknown) {
+    const err = error as { response?: { data?: unknown } };
+    const detail = err.response ? JSON.stringify(err.response.data || err.response) : (error instanceof Error ? error.message : String(error));
+    console.error(`[EmailSync] Failed sync ${syncId}:`, detail);
     
     // Update sync log to failed
     await pbAdmin.collection("email_sync_logs").update(syncId, {
       status: "failed",
-      errors: [error instanceof Error ? error.message : "Unknown error"],
+      errors: [detail],
       completed_at: new Date().toISOString(),
       duration_ms: Date.now() - startTime,
     });

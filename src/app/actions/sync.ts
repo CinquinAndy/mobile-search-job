@@ -117,13 +117,20 @@ export async function createResponsesAction(userId: string) {
 /**
  * Full sync: email logs + create companies/applications + responses
  */
-export async function syncApplicationsAction(userId: string) {
+export async function syncApplicationsAction(
+  userId: string,
+  options: {
+    syncType?: "full" | "sent_only" | "received_only";
+    dateFrom?: Date;
+    dateTo?: Date;
+  } = {},
+) {
   if (!userId) {
     return { success: false, error: "User ID is required" };
   }
 
   try {
-    const results = await syncService.syncResendEmails(userId);
+    const results = await syncService.syncAllEmailData(userId, options);
     revalidatePath("/");
     revalidatePath("/admin");
     return { success: true, data: results };

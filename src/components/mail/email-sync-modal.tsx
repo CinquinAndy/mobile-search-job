@@ -48,10 +48,10 @@ export function EmailSyncModal({
             </div>
             <div>
               <h2 className="text-lg font-bold text-foreground">
-                Synchroniser les emails
+                Sync Emails
               </h2>
               <p className="text-xs text-muted-foreground">
-                Récupère les derniers emails depuis Resend
+                Fetch the latest emails from Resend
               </p>
             </div>
           </div>
@@ -69,9 +69,9 @@ export function EmailSyncModal({
         <div className="p-6 space-y-6">
           {/* Sync Type */}
           <div>
-            <label className="block text-sm font-bold text-foreground mb-3">
-              Type de synchronisation
-            </label>
+            <span className="block text-sm font-bold text-foreground mb-3">
+              Sync Type
+            </span>
             <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
@@ -83,7 +83,7 @@ export function EmailSyncModal({
                     : "bg-secondary text-secondary-foreground border-border hover:bg-secondary/80",
                 )}
               >
-                Tous
+                All
               </button>
               <button
                 type="button"
@@ -95,7 +95,7 @@ export function EmailSyncModal({
                     : "bg-secondary text-secondary-foreground border-border hover:bg-secondary/80",
                 )}
               >
-                Reçus
+                Received
               </button>
               <button
                 type="button"
@@ -107,7 +107,7 @@ export function EmailSyncModal({
                     : "bg-secondary text-secondary-foreground border-border hover:bg-secondary/80",
                 )}
               >
-                Envoyés
+                Sent
               </button>
             </div>
           </div>
@@ -119,7 +119,7 @@ export function EmailSyncModal({
                 htmlFor="email-date-from"
                 className="block text-sm font-bold text-foreground mb-2"
               >
-                Date de début (optionnel)
+                Start Date (optional)
               </label>
               <input
                 id="email-date-from"
@@ -130,7 +130,7 @@ export function EmailSyncModal({
                 className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Laisser vide pour synchroniser depuis le début
+                Leave empty to sync from the beginning
               </p>
             </div>
 
@@ -139,7 +139,7 @@ export function EmailSyncModal({
                 htmlFor="email-date-to"
                 className="block text-sm font-bold text-foreground mb-2"
               >
-                Date de fin (optionnel)
+                End Date (optional)
               </label>
               <input
                 id="email-date-to"
@@ -151,7 +151,7 @@ export function EmailSyncModal({
                 className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Laisser vide pour synchroniser jusqu'à aujourd'hui
+                Leave empty to sync until today
               </p>
             </div>
           </div>
@@ -161,18 +161,19 @@ export function EmailSyncModal({
             <p className="text-xs text-foreground/80">
               <strong className="text-primary">Note:</strong>{" "}
               {syncType === "full" &&
-                "Synchronisation des emails reçus et envoyés."}
+                "Synchronizing received and sent emails."}
               {syncType === "received_only" &&
-                "Synchronisation uniquement des emails reçus."}
+                "Synchronizing only received emails."}
               {syncType === "sent_only" &&
-                "Synchronisation uniquement des emails envoyés."}
+                "Synchronizing only sent emails."}
               {!dateFrom &&
                 !dateTo &&
-                " Tous les emails disponibles seront synchronisés."}
+                " All available emails will be synchronized."}
               {(dateFrom || dateTo) &&
-                " Seulement les emails dans la période sélectionnée."}
+                " Only emails within the selected period."}
             </p>
           </div>
+
         </div>
 
         {/* Footer */}
@@ -183,7 +184,7 @@ export function EmailSyncModal({
             disabled={isSyncing}
             className="px-4 py-2 text-sm font-semibold text-foreground hover:bg-secondary rounded-lg transition-colors disabled:opacity-50"
           >
-            Annuler
+            Cancel
           </button>
           <button
             type="button"
@@ -196,9 +197,10 @@ export function EmailSyncModal({
                 : "hover:bg-primary/90 shadow-primary/20",
             )}
           >
-            {isSyncing ? "Synchronisation..." : "Synchroniser"}
+            {isSyncing ? "Syncing..." : "Sync Now"}
           </button>
         </div>
+
       </div>
     </div>
   );

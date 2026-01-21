@@ -134,6 +134,7 @@ export interface SendEmailParams {
   bcc?: string | string[];
   replyTo?: string;
   tags?: { name: string; value: string }[];
+  useProfessionalDesign?: boolean;
 }
 
 // Helper type for template variable substitution

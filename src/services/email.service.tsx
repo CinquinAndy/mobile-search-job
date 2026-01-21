@@ -1,3 +1,4 @@
+import * as React from "react";
 import type {
   Email,
   EmailAddress,
@@ -11,6 +12,18 @@ import { resendService } from "./resend.service";
 /**
  * Email service for managing emails, drafts, and email operations
  */
+
+// Helper to parse "Name <email@example.com>" format
+function parseFullEmailString(emailStr: string): { email: string; name?: string } {
+  const match = emailStr.match(/^(.*?)\s*<(.+?)>$/);
+  if (match) {
+    return {
+      name: match[1]?.trim() || undefined,
+      email: match[2]?.trim(),
+    };
+  }
+  return { email: emailStr.trim() };
+}
 
 // Helper to convert Resend email to our Email type
 function convertResendEmail(
@@ -26,13 +39,19 @@ function convertResendEmail(
   },
   folder: EmailFolder = EmailFolder.SENT,
 ): Email {
+  const fromInfo = parseFullEmailString(resendEmail.from || "contact@andy-cinquin.com");
+
   return {
     id: resendEmail.id,
     resendId: resendEmail.id,
     from: {
-      email: resendEmail.from || "contact@andy-cinquin.com",
+      email: fromInfo.email,
+      name: fromInfo.name,
     },
-    to: resendEmail.to.map((email) => ({ email })),
+    to: resendEmail.to.map((toStr) => {
+      const info = parseFullEmailString(toStr);
+      return { email: info.email, name: info.name };
+    }),
     subject: resendEmail.subject,
     body: resendEmail.text || "",
     html: resendEmail.html || undefined,
@@ -41,7 +60,8 @@ function convertResendEmail(
     isRead: true,
     isStarred: false,
     hasAttachments: false,
-    sentAt: resendEmail.created_at,
+    sentAt: folder === EmailFolder.SENT ? resendEmail.created_at : undefined,
+    receivedAt: folder === EmailFolder.INBOX ? resendEmail.created_at : undefined,
     createdAt: resendEmail.created_at,
     updatedAt: resendEmail.created_at,
   };
@@ -56,9 +76,9 @@ export const emailService = {
   /**
    * Get all sent emails from Resend
    */
-  async getSentEmails(): Promise<Email[]> {
+  async getSentEmails(dateFrom?: Date): Promise<Email[]> {
     try {
-      const resendEmails = await resendService.listAllEmails();
+      const resendEmails = await resendService.listAllEmails(dateFrom);
 
       // Convert to our Email type using basic info only
       // We don't fetch full details to avoid rate limiting
@@ -76,9 +96,9 @@ export const emailService = {
   /**
    * Get inbox emails (received emails from Resend)
    */
-  async getInbox(): Promise<Email[]> {
+  async getInbox(dateFrom?: Date): Promise<Email[]> {
     try {
-      const receivedEmails = await resendService.listAllReceivedEmails();
+      const receivedEmails = await resendService.listAllReceivedEmails(dateFrom);
 
       // Convert to our Email type using basic info
       // We don't fetch full details to avoid rate limiting
@@ -110,12 +130,24 @@ export const emailService = {
    */
   async sendEmail(params: SendEmailParams): Promise<{ id: string }> {
     try {
+      let finalHtml = params.html;
+      let finalText = params.text;
+
+      if (params.useProfessionalDesign && params.text) {
+        const { GeneralTemplate } = await import("@/emails/GeneralTemplate");
+        const { html, text } = await resendService.renderReactEmail(
+          <GeneralTemplate content={params.text} />
+        );
+        finalHtml = html;
+        finalText = text;
+      }
+
       const result = await resendService.sendEmail({
         to: params.to,
         from: params.from,
         subject: params.subject,
-        html: params.html,
-        text: params.text,
+        html: finalHtml,
+        text: finalText,
         cc: params.cc,
         bcc: params.bcc,
         replyTo: params.replyTo,

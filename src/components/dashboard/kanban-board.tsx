@@ -44,7 +44,7 @@ interface Column {
 const COLUMNS: Column[] = [
   {
     id: "contact",
-    title: "Contact envoyé",
+    title: "Contact Sent",
     statuses: [
       "sent",
       "delivered",
@@ -61,27 +61,27 @@ const COLUMNS: Column[] = [
   },
   {
     id: "interview",
-    title: "Entretien prévu",
+    title: "Interview Scheduled",
     statuses: ["interview"],
     color:
       "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
   },
   {
     id: "rejected",
-    title: "Refus catégorique",
+    title: "Categorical Refusal",
     statuses: ["rejected", "bounced", "failed", "complained"],
     color: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20",
   },
   {
     id: "rejected_later",
-    title: "Refus plus tard",
+    title: "Refuse Later",
     statuses: ["rejected_later"],
     color:
       "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
   },
   {
     id: "rejected_after_interview",
-    title: "Refus après entretien",
+    title: "Refused After Interview",
     statuses: ["rejected_after_interview"],
     color: "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/20",
   },
@@ -193,7 +193,7 @@ export function KanbanBoard({
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <input
-          placeholder="Rechercher sur tout le board..."
+          placeholder="Search all boards..."
           value={globalSearch}
           onChange={(e) => setGlobalSearch(e.target.value)}
           className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-background border border-border text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
@@ -275,7 +275,7 @@ export function KanbanBoard({
                       {provided.placeholder}
                       {allAppsInColumn.length === 0 && (
                         <div className="h-24 flex items-center justify-center rounded-2xl border border-dashed border-border bg-muted/30 text-muted-foreground text-[10px] uppercase font-bold tracking-wider">
-                          Vide
+                          Empty
                         </div>
                       )}
 
@@ -291,8 +291,7 @@ export function KanbanBoard({
                           className="w-full py-3 rounded-2xl border border-dashed border-border bg-card/30 text-muted-foreground text-[10px] font-black uppercase tracking-widest hover:bg-muted/50 hover:text-foreground transition-all flex items-center justify-center gap-2 mt-2"
                         >
                           <Plus className="w-3 h-3" />
-                          Voir les {allAppsInColumn.length - visibleCount}{" "}
-                          autres
+                          View {allAppsInColumn.length - visibleCount} more
                         </button>
                       )}
                     </div>
@@ -346,7 +345,7 @@ function KanbanCard({
             {application.company}
           </h4>
           <span className="text-[10px] text-muted-foreground font-medium line-clamp-1">
-            {application.position || "Poste non spécifié"}
+            {application.position || "Position not specified"}
           </span>
         </div>
         <div className="flex items-center gap-1">
@@ -359,23 +358,23 @@ function KanbanCard({
         <div className="grid grid-cols-2 gap-2">
           <div className="flex flex-col gap-1 p-2 rounded-lg bg-muted/50 border border-border/50">
             <span className="text-[8px] font-black uppercase text-muted-foreground/70 tracking-tighter">
-              Premier Contact
+              First Contact
             </span>
             <span className="text-[10px] font-bold text-foreground flex items-center gap-1">
               <Calendar className="w-2.5 h-2.5 text-blue-500" />
-              {firstContactDays === 0 ? "Aujourd'hui" : `J-${firstContactDays}`}
+              {firstContactDays === 0 ? "Today" : `${firstContactDays}d ago`}
             </span>
           </div>
 
           {showFollowUpSystem && (
             <div className="flex flex-col gap-1 p-2 rounded-lg bg-muted/50 border border-border/50">
               <span className="text-[8px] font-black uppercase text-muted-foreground/70 tracking-tighter">
-                Relances
+                Follow-ups
               </span>
               <span className="text-[10px] font-bold text-foreground flex items-center gap-1">
                 <RefreshCcw className="w-2.5 h-2.5 text-emerald-500" />
                 {application.followUpCount}{" "}
-                {application.followUpCount > 1 ? "fois" : "fois"}
+                {application.followUpCount > 1 ? "times" : "time"}
               </span>
             </div>
           )}
@@ -385,7 +384,7 @@ function KanbanCard({
         {application.lastFollowUpAt && showFollowUpSystem && (
           <div className="flex items-center gap-1.5 text-[9px] text-muted-foreground font-medium bg-emerald-500/5 py-1 px-2 rounded-md border border-emerald-500/10 w-fit">
             <Clock className="w-2.5 h-2.5" />
-            Dernière relance{" "}
+            Last follow-up{" "}
             {formatDistanceToNow(new Date(application.lastFollowUpAt), {
               addSuffix: true,
             })}
@@ -401,7 +400,7 @@ function KanbanCard({
               className="flex-1 h-8 bg-emerald-500 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-emerald-600 transition-colors shadow-sm shadow-emerald-500/20 active:scale-95 flex items-center justify-center gap-1.5"
             >
               <Plus className="w-3 h-3" />
-              Relancer
+              Follow up
             </button>
           )}
 
@@ -431,12 +430,12 @@ function MoveDropdown({
   const [isOpen, setIsOpen] = React.useState(false);
 
   const OPTIONS: { label: string; status: ApplicationStatus }[] = [
-    { label: "Contact envoyé", status: "sent" },
-    { label: "Entretien", status: "interview" },
-    { label: "Refus catégorique", status: "rejected" },
-    { label: "Refus plus tard", status: "rejected_later" },
-    { label: "Refus après entretien", status: "rejected_after_interview" },
-    { label: "Offre reçue", status: "offer" },
+    { label: "Contact Sent", status: "sent" },
+    { label: "Interview", status: "interview" },
+    { label: "Categorical Refusal", status: "rejected" },
+    { label: "Refuse Later", status: "rejected_later" },
+    { label: "Refused After Interview", status: "rejected_after_interview" },
+    { label: "Offer Received", status: "offer" },
   ];
 
   return (
@@ -459,7 +458,7 @@ function MoveDropdown({
           <div className="flex flex-col">
             <div className="px-3 py-1.5 border-b border-border mb-1">
               <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">
-                Passer à...
+                Move to...
               </span>
             </div>
             {OPTIONS.map((opt) => (

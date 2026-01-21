@@ -33,13 +33,32 @@ function normalizeDate(dateStr: string | null | undefined): string | null {
   }
 }
 
+/**
+ * Helper to parse "Name <email@example.com>" format
+ */
+function parseFullEmailString(emailStr: string): { email: string; name?: string } {
+  if (!emailStr) return { email: "" };
+  const match = emailStr.match(/^(.*?)\s*<(.+?)>$/);
+  if (match) {
+    return {
+      name: match[1]?.trim() || undefined,
+      email: match[2]?.trim(),
+    };
+  }
+  return { email: emailStr.trim() };
+}
+
 export const syncService = {
   /**
    * STEP 1: Sync only email logs from Resend to PocketBase
    * Now includes direction field (outbound for sent emails)
    * @param userId - The user ID to associate email logs with
+   * @param options - Optional filters (dateFrom, dateTo)
    */
-  async syncEmailLogsOnly(userId: string) {
+  async syncEmailLogsOnly(
+    userId: string,
+    options: { dateFrom?: Date; dateTo?: Date } = {},
+  ) {
     if (!resend) throw new Error("Resend client not initialized");
 
     const pb = await getAdminPB();
@@ -95,14 +114,31 @@ export const syncService = {
             status: typedEmail.last_event || "sent",
           };
 
-          const recipient = email.to[0];
-          if (!recipient) {
+          const rawRecipient = email.to[0];
+          if (!rawRecipient) {
             skippedCount++;
             continue;
           }
 
+          // Clean recipient email
+          const recipientInfo = parseFullEmailString(rawRecipient);
+          const recipient = recipientInfo.email;
+
           // Normalize date for PocketBase
           const sentAt = normalizeDate(email.created_at);
+
+          // Date range check
+          if (sentAt) {
+            const sentDate = new Date(sentAt);
+            if (options.dateFrom && sentDate < options.dateFrom) {
+              skippedCount++;
+              continue;
+            }
+            if (options.dateTo && sentDate > options.dateTo) {
+              skippedCount++;
+              continue;
+            }
+          }
 
           try {
             let existingLog = null;
@@ -138,10 +174,12 @@ export const syncService = {
               });
               createdCount++;
             }
-          } catch (err) {
+          } catch (err: unknown) {
+            const error = err as { response?: { data?: unknown }; message?: string };
+            const detail = error.response ? JSON.stringify(error.response.data || error.response) : (error.message || String(err));
             console.error(
               `[SyncService] Failed to sync email ${email.id}:`,
-              err,
+              detail,
             );
           }
         }
@@ -165,8 +203,12 @@ export const syncService = {
    * STEP 1b: Sync received/inbound emails from Resend to PocketBase
    * Uses resend.emails.receiving.list() API
    * @param userId - The user ID to associate email logs with
+   * @param options - Optional filters (dateFrom, dateTo)
    */
-  async syncInboundEmailsOnly(userId: string) {
+  async syncInboundEmailsOnly(
+    userId: string,
+    options: { dateFrom?: Date; dateTo?: Date } = {},
+  ) {
     if (!resend) throw new Error("Resend client not initialized");
 
     const pb = await getAdminPB();
@@ -226,18 +268,23 @@ export const syncService = {
 
           // biome-ignore lint/suspicious/noExplicitAny: Resend API typing
           const typedEmail = rawEmail as any;
-          const sender = typedEmail.from || "";
-          const recipients = typedEmail.to || [];
+          const rawSender = typedEmail.from || "";
+          const rawRecipients = typedEmail.to || [];
           const subject = typedEmail.subject || "";
           const createdAt = typedEmail.created_at;
 
-          if (!sender) {
+          if (!rawSender) {
             console.warn(
               `[SyncService] [${totalProcessed}] SKIP: Inbound email ${typedEmail.id} has no sender`,
             );
             skippedCount++;
             continue;
           }
+
+          // Clean names/emails
+          const senderInfo = parseFullEmailString(rawSender);
+          const sender = senderInfo.email;
+          const recipients = rawRecipients.map((r: string) => parseFullEmailString(r).email);
 
           try {
             // Check if already exists
@@ -253,6 +300,19 @@ export const syncService = {
 
             // Normalize date for PocketBase
             const sentAt = normalizeDate(createdAt);
+
+            // Date range check
+            if (sentAt) {
+              const sentDate = new Date(sentAt);
+              if (options.dateFrom && sentDate < options.dateFrom) {
+                skippedCount++;
+                continue;
+              }
+              if (options.dateTo && sentDate > options.dateTo) {
+                skippedCount++;
+                continue;
+              }
+            }
 
             console.info(
               `[SyncService] [${totalProcessed}] Creating inbound log: ${sender} -> ${recipients[0] || "unknown"} | Date: ${sentAt}`,
@@ -272,10 +332,12 @@ export const syncService = {
               user: userId,
             });
             createdCount++;
-          } catch (err) {
+          } catch (err: unknown) {
+            const error = err as { response?: { data?: unknown }; message?: string };
+            const detail = error.response ? JSON.stringify(error.response.data || error.response) : (error.message || String(err));
             console.error(
               `[SyncService] [${totalProcessed}] Failed to sync inbound email ${typedEmail.id}:`,
-              err,
+              detail,
             );
           }
         }
@@ -522,15 +584,23 @@ export const syncService = {
             `[SyncService] Found association: ${company.name} | App: ${application?.id || "NONE"} | Type: ${responseType}`,
           );
 
+          // Ensure date is formatted for PB
+          const receivedAt = normalizeDate(log.sent_at || log.created);
+          if (!receivedAt) {
+             console.warn(`[SyncService] SKIP: Could not determine valid date for log ${log.id}`);
+             skippedCount++;
+             continue;
+          }
+
           // Create response
           await pb.collection("responses").create({
             company: company.id,
             application: application?.id || null,
             email_log: log.id,
             type: responseType,
-            sender_email: sender,
+            sender_email: parseFullEmailString(sender).email,
             subject: subject,
-            received_at: log.sent_at || log.created,
+            received_at: receivedAt,
             user: userId,
           });
           responsesCreated++;
@@ -538,7 +608,7 @@ export const syncService = {
           // Update application status if we have one
           if (application) {
             const newStatus = this.getStatusFromResponseType(responseType);
-            const logDate = log.sent_at || log.created;
+            const logDate = receivedAt;
 
             // biome-ignore lint/suspicious/noExplicitAny: PocketBase transition
             const updateData: any = {
@@ -567,10 +637,12 @@ export const syncService = {
               application: application?.id || log.application || null,
             });
           }
-        } catch (err) {
+        } catch (err: unknown) {
+          const error = err as { response?: { data?: unknown }; message?: string };
+          const detail = error.response ? JSON.stringify(error.response.data || error.response) : (error.message || String(err));
           console.error(
             `[SyncService] Failed to create response for log ${log.id}:`,
-            err,
+            detail,
           );
           skippedCount++;
         }
@@ -598,6 +670,49 @@ export const syncService = {
     return {
       outboundSynced: outboundResult.createdCount,
       inboundSynced: inboundResult.createdCount,
+      companiesCreated: companyResult.companiesCreated,
+      applicationsCreated: companyResult.applicationsCreated,
+      responsesCreated: responseResult.responsesCreated,
+    };
+  },
+
+  /**
+   * Unified sync: logs, content, companies, applications, and responses
+   */
+  async syncAllEmailData(
+    userId: string,
+    options: {
+      syncType?: "full" | "sent_only" | "received_only";
+      dateFrom?: Date;
+      dateTo?: Date;
+    } = {},
+  ) {
+    const { syncType = "full" } = options;
+
+    let outboundCount = 0;
+    let inboundCount = 0;
+
+    // 1. Sync Logs (Sent)
+    if (syncType === "full" || syncType === "sent_only") {
+      const result = await this.syncEmailLogsOnly(userId, options);
+      outboundCount = result.createdCount;
+    }
+
+    // 2. Sync Logs (Received)
+    if (syncType === "full" || syncType === "received_only") {
+      const result = await this.syncInboundEmailsOnly(userId, options);
+      inboundCount = result.createdCount;
+    }
+
+    // 3. Create Companies and Applications
+    const companyResult = await this.createCompaniesFromLogs(userId);
+
+    // 4. Create Responses
+    const responseResult = await this.createResponsesFromLogs(userId);
+
+    return {
+      outboundSynced: outboundCount,
+      inboundSynced: inboundCount,
       companiesCreated: companyResult.companiesCreated,
       applicationsCreated: companyResult.applicationsCreated,
       responsesCreated: responseResult.responsesCreated,
@@ -685,10 +800,12 @@ export const syncService = {
       });
 
       return { companyCreated, applicationCreated, companyId: company.id };
-    } catch (err) {
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: unknown }; message?: string };
+      const detail = error.response ? JSON.stringify(error.response.data || error.response) : (error.message || String(err));
       console.warn(
         `[SyncService] Failed to create/match for log ${logId}:`,
-        err,
+        detail,
       );
       return { companyCreated: false, applicationCreated: false };
     }

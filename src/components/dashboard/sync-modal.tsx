@@ -6,7 +6,11 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 interface SyncModalProps {
-  onSync: (dateFrom?: Date, dateTo?: Date) => void | Promise<void>;
+  onSync: (params: {
+    syncType?: "full" | "sent_only" | "received_only";
+    dateFrom?: Date;
+    dateTo?: Date;
+  }) => void | Promise<void>;
   onClose: () => void;
   isSyncing?: boolean;
 }
@@ -18,7 +22,9 @@ export function SyncModal({
 }: SyncModalProps) {
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
-  const [syncType, setSyncType] = useState<"all" | "received" | "sent">("all");
+  const [syncType, setSyncType] = useState<
+    "full" | "sent_only" | "received_only"
+  >("full");
 
   const handleSync = async () => {
     const fromDate = dateFrom ? new Date(dateFrom) : undefined;
@@ -26,11 +32,15 @@ export function SyncModal({
 
     // Validate dates
     if (fromDate && toDate && fromDate > toDate) {
-      alert("La date de début doit être antérieure à la date de fin");
+      alert("Start date must be before end date");
       return;
     }
 
-    await onSync(fromDate, toDate);
+    await onSync({
+      syncType,
+      dateFrom: fromDate,
+      dateTo: toDate,
+    });
   };
 
   return (
@@ -44,10 +54,10 @@ export function SyncModal({
             </div>
             <div>
               <h2 className="text-lg font-bold text-foreground">
-                Synchroniser les emails
+                Sync Emails
               </h2>
               <p className="text-xs text-muted-foreground">
-                Choisissez une période de synchronisation
+                Choose a synchronization period
               </p>
             </div>
           </div>
@@ -65,45 +75,45 @@ export function SyncModal({
         <div className="p-6 space-y-6">
           {/* Sync Type */}
           <div>
-            <label className="block text-sm font-bold text-foreground mb-3">
-              Type de synchronisation
-            </label>
+            <span className="block text-sm font-bold text-foreground mb-3">
+              Sync Type
+            </span>
             <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
-                onClick={() => setSyncType("all")}
+                onClick={() => setSyncType("full")}
                 className={cn(
                   "px-4 py-2.5 rounded-lg text-sm font-medium transition-all border",
-                  syncType === "all"
+                  syncType === "full"
                     ? "bg-primary text-primary-foreground border-primary shadow-sm"
                     : "bg-secondary text-secondary-foreground border-border hover:bg-secondary/80",
                 )}
               >
-                Tous
+                All
               </button>
               <button
                 type="button"
-                onClick={() => setSyncType("received")}
+                onClick={() => setSyncType("received_only")}
                 className={cn(
                   "px-4 py-2.5 rounded-lg text-sm font-medium transition-all border",
-                  syncType === "received"
+                  syncType === "received_only"
                     ? "bg-primary text-primary-foreground border-primary shadow-sm"
                     : "bg-secondary text-secondary-foreground border-border hover:bg-secondary/80",
                 )}
               >
-                Reçus
+                Received
               </button>
               <button
                 type="button"
-                onClick={() => setSyncType("sent")}
+                onClick={() => setSyncType("sent_only")}
                 className={cn(
                   "px-4 py-2.5 rounded-lg text-sm font-medium transition-all border",
-                  syncType === "sent"
+                  syncType === "sent_only"
                     ? "bg-primary text-primary-foreground border-primary shadow-sm"
                     : "bg-secondary text-secondary-foreground border-border hover:bg-secondary/80",
                 )}
               >
-                Envoyés
+                Sent
               </button>
             </div>
           </div>
@@ -115,7 +125,7 @@ export function SyncModal({
                 htmlFor="date-from"
                 className="block text-sm font-bold text-foreground mb-2"
               >
-                Date de début (optionnel)
+                Start Date (optional)
               </label>
               <input
                 id="date-from"
@@ -126,7 +136,7 @@ export function SyncModal({
                 className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Laisser vide pour synchroniser depuis le début
+                Leave empty to sync from the beginning
               </p>
             </div>
 
@@ -135,7 +145,7 @@ export function SyncModal({
                 htmlFor="date-to"
                 className="block text-sm font-bold text-foreground mb-2"
               >
-                Date de fin (optionnel)
+                End Date (optional)
               </label>
               <input
                 id="date-to"
@@ -147,7 +157,7 @@ export function SyncModal({
                 className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Laisser vide pour synchroniser jusqu'à aujourd'hui
+                Leave empty to sync until today
               </p>
             </div>
           </div>
@@ -156,17 +166,17 @@ export function SyncModal({
           <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
             <p className="text-xs text-foreground/80">
               <strong className="text-primary">Note:</strong>{" "}
-              {syncType === "all" &&
-                "Synchronisation des emails reçus et envoyés."}
-              {syncType === "received" &&
-                "Synchronisation uniquement des emails reçus."}
-              {syncType === "sent" &&
-                "Synchronisation uniquement des emails envoyés."}
+              {syncType === "full" &&
+                "Synchronizing received and sent emails."}
+              {syncType === "received_only" &&
+                "Synchronizing only received emails."}
+              {syncType === "sent_only" &&
+                "Synchronizing only sent emails."}
               {!dateFrom &&
                 !dateTo &&
-                " Tous les emails disponibles seront synchronisés."}
+                " All available emails will be synchronized."}
               {(dateFrom || dateTo) &&
-                " Seulement les emails dans la période sélectionnée."}
+                " Only emails within the selected period."}
             </p>
           </div>
         </div>
@@ -179,7 +189,7 @@ export function SyncModal({
             disabled={isSyncing}
             className="px-4 py-2 text-sm font-semibold text-foreground hover:bg-secondary rounded-lg transition-colors disabled:opacity-50"
           >
-            Annuler
+            Cancel
           </button>
           <button
             type="button"
@@ -192,9 +202,10 @@ export function SyncModal({
                 : "hover:bg-primary/90 shadow-primary/20",
             )}
           >
-            {isSyncing ? "Synchronisation..." : "Synchroniser"}
+            {isSyncing ? "Syncing..." : "Sync Now"}
           </button>
         </div>
+
       </div>
     </div>
   );

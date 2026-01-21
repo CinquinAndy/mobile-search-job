@@ -47,9 +47,8 @@ export function EmailList({
         >
           <div className="flex items-start gap-3">
             {/* Star button */}
-            <div
-              role="button"
-              tabIndex={0}
+            <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onToggleStar?.(email.id);
@@ -61,14 +60,14 @@ export function EmailList({
                   onToggleStar?.(email.id);
                 }
               }}
-              className="mt-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+              className="mt-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer bg-transparent border-none p-0"
             >
               {email.isStarred ? (
                 <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
               ) : (
                 <StarOff className="w-4 h-4 text-muted-foreground" />
               )}
-            </div>
+            </button>
 
             <div className="flex-1 min-w-0">
               {/* Header */}
@@ -87,7 +86,10 @@ export function EmailList({
                   )}
                 </div>
                 <time className="text-[10px] text-muted-foreground uppercase tracking-wider flex-shrink-0">
-                  {format(new Date(email.sentAt || email.createdAt), "MMM d")}
+                  {format(
+                    new Date(email.receivedAt || email.sentAt || email.createdAt),
+                    "MMM d",
+                  )}
                 </time>
               </div>
 

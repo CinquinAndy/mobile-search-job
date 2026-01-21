@@ -132,8 +132,10 @@ export const emailPbService = {
       // 2. Content not in cache - fetch from Resend with throttling
       console.info(`[EmailPB] Fetching content for email ${resendId} from Resend...`);
       
+      const emailType = record.folder === "inbox" ? "inbound" : "outbound";
+      
       const { fetchEmailContentThrottled } = await import("./email-content-fetcher");
-      const content = await fetchEmailContentThrottled(resendId);
+      const content = await fetchEmailContentThrottled(resendId, emailType);
       
       // 3. Update PocketBase with the content
       await getPb().collection("emails").update(emailId, {

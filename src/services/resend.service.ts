@@ -1,4 +1,6 @@
+import { render } from "@react-email/render";
 import { Resend } from "resend";
+import type { ReactElement } from "react";
 
 const RESEND_KEY = process.env.RESEND_KEY;
 
@@ -47,6 +49,15 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const resendService = {
   /**
+   * Render a React Email component to HTML and Text
+   */
+  async renderReactEmail(component: ReactElement): Promise<{ html: string; text: string }> {
+    const html = await render(component);
+    const text = await render(component, { plainText: true });
+    return { html, text };
+  },
+
+  /**
    * Send an email via Resend
    */
   async sendEmail(params: {
@@ -62,8 +73,8 @@ export const resendService = {
   }) {
     if (!resend) throw new Error("Resend client not initialized");
 
-    const response = await resend.emails.send({
-      from: params.from || "onboarding@resend.dev", // Use your verified domain
+    const response = await (resend.emails.send as any)({
+      from: params.from || "Andy Cinquin <contact@andy-cinquin.com>", // Use your verified domain
       to: params.to,
       subject: params.subject,
       html: params.html,
@@ -112,10 +123,9 @@ export const resendService = {
 
   /**
    * List ALL sent emails from Resend using cursor-based pagination
-   * Fetches all pages until has_more is false
-   * Includes rate limiting delay to avoid 429 errors
+   * @param dateFrom Optional date to stop fetching (emails older than this won't be fetched)
    */
-  async listAllEmails(): Promise<ResendEmailUpdate[]> {
+  async listAllEmails(dateFrom?: Date): Promise<ResendEmailUpdate[]> {
     if (!resend) throw new Error("Resend client not initialized");
 
     const allEmails: ResendEmailUpdate[] = [];
@@ -123,7 +133,9 @@ export const resendService = {
     let afterCursor: string | undefined;
     let pageCount = 0;
 
-    console.info("[ResendService] Starting to fetch all emails...");
+    console.info(
+      `[ResendService] Starting to fetch emails${dateFrom ? ` from ${dateFrom.toISOString()}` : ""}...`,
+    );
 
     while (hasMore) {
       pageCount++;
@@ -148,16 +160,41 @@ export const resendService = {
         // biome-ignore lint/suspicious/noExplicitAny: Resend API response typing
         const mappedEmails = emails.map((email: any) => ({
           id: email.id,
-          from: email.from || "contact@andy-cinquin.com", // Include from field
+          from: email.from || "contact@andy-cinquin.com",
           to: email.to || [],
           subject: email.subject || "",
           created_at: email.created_at,
-          status: email.last_event || "sent", // Map last_event to status
-          html: null, // List endpoint doesn't include HTML content
-          text: null, // List endpoint doesn't include text content
+          status: email.last_event || "sent",
+          html: null,
+          text: null,
         }));
 
-        allEmails.push(...mappedEmails);
+        // Check for date filtering
+        if (dateFrom) {
+          const filteredMapped = [];
+          let stoppedByDate = false;
+
+          for (const email of mappedEmails) {
+            const emailDate = new Date(email.created_at);
+            if (emailDate < dateFrom) {
+              stoppedByDate = true;
+              break;
+            }
+            filteredMapped.push(email);
+          }
+
+          allEmails.push(...filteredMapped);
+
+          if (stoppedByDate) {
+            console.info(
+              `[ResendService] Stopped fetching at ${mappedEmails[filteredMapped.length]?.created_at} (reached dateFrom)`,
+            );
+            break;
+          }
+        } else {
+          allEmails.push(...mappedEmails);
+        }
+
         afterCursor = emails[emails.length - 1].id;
       }
 
@@ -188,32 +225,45 @@ export const resendService = {
 
   /**
    * Get full email content including HTML
+   * @param id - Resend ID
+   * @param type - Email type (outbound for sent, inbound for received)
    */
-  async getEmailContent(id: string) {
+  async getEmailContent(id: string, type: "outbound" | "inbound" = "outbound") {
     if (!resend) throw new Error("Resend client not initialized");
 
-    const response = await resend.emails.get(id);
+    let response: any;
+    
+    if (type === "inbound") {
+      // Use receiving API for inbound emails
+      response = await (resend.emails as any).receiving.get(id);
+    } else {
+      // Use standard emails API for outbound emails
+      response = await resend.emails.get(id);
+    }
 
     if (response.error) {
       throw new Error(`Resend Error: ${response.error.message}`);
     }
 
+    const data = response.data;
+
     return {
-      id: response.data?.id,
-      from: response.data?.from,
-      to: response.data?.to,
-      subject: response.data?.subject,
-      html: response.data?.html,
-      text: response.data?.text,
-      created_at: response.data?.created_at,
-      status: response.data?.last_event,
+      id: data?.id,
+      from: data?.from,
+      to: data?.to,
+      subject: data?.subject,
+      html: data?.html,
+      text: data?.text,
+      created_at: data?.created_at,
+      status: data?.last_event,
     };
   },
 
   /**
    * List ALL received emails using cursor-based pagination
+   * @param dateFrom Optional date to stop fetching
    */
-  async listAllReceivedEmails(): Promise<ResendReceivedEmail[]> {
+  async listAllReceivedEmails(dateFrom?: Date): Promise<ResendReceivedEmail[]> {
     if (!resend) throw new Error("Resend client not initialized");
 
     const allEmails: ResendReceivedEmail[] = [];
@@ -221,7 +271,9 @@ export const resendService = {
     let afterCursor: string | undefined;
     let pageCount = 0;
 
-    console.info("[ResendService] Starting to fetch received emails...");
+    console.info(
+      `[ResendService] Starting to fetch received emails${dateFrom ? ` from ${dateFrom.toISOString()}` : ""}...`,
+    );
 
     while (hasMore) {
       pageCount++;
@@ -244,7 +296,42 @@ export const resendService = {
       const emails = response.data?.data || [];
 
       if (emails.length > 0) {
-        allEmails.push(...emails);        afterCursor = emails[emails.length - 1].id;
+        // biome-ignore lint/suspicious/noExplicitAny: Resend API response typing
+        const mappedEmails = emails.map((email: any) => ({
+          id: email.id,
+          from: email.from,
+          to: email.to || [],
+          subject: email.subject || "",
+          created_at: email.created_at,
+        }));
+
+        // Check for date filtering
+        if (dateFrom) {
+          const filteredMapped = [];
+          let stoppedByDate = false;
+
+          for (const email of mappedEmails) {
+            const emailDate = new Date(email.created_at);
+            if (emailDate < dateFrom) {
+              stoppedByDate = true;
+              break;
+            }
+            filteredMapped.push(email);
+          }
+
+          allEmails.push(...filteredMapped);
+
+          if (stoppedByDate) {
+            console.info(
+              `[ResendService] Stopped fetching at ${mappedEmails[filteredMapped.length]?.created_at} (reached dateFrom)`,
+            );
+            break;
+          }
+        } else {
+          allEmails.push(...mappedEmails);
+        }
+
+        afterCursor = emails[emails.length - 1].id;
       }
 
       hasMore = response.data?.has_more ?? false;
@@ -267,7 +354,7 @@ export const resendService = {
     if (!resend) throw new Error("Resend client not initialized");
 
     // biome-ignore lint/suspicious/noExplicitAny: Resend receiving API typing
-    const response: any = await (resend.emails as any).receiving.retrieve(id);
+    const response: any = await (resend.emails as any).receiving.get(id);
 
     if (response.error) {
       throw new Error(`Resend Error: ${response.error.message}`);

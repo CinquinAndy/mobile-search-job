@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, Mail, RefreshCw, Search, X } from "lucide-react";
+import { Mail, RefreshCw, Search, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { EmailComposer } from "@/components/mail/email-composer";
 import { EmailDetail } from "@/components/mail/email-detail";
@@ -18,7 +18,7 @@ export default function MailPage() {
   const [emails, setEmails] = useState<Email[]>([]);
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [activeFolder, setActiveFolder] = useState<EmailFolder>(
-    EmailFolder.SENT,
+    EmailFolder.INBOX,
   );
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -27,7 +27,6 @@ export default function MailPage() {
   const [composerMode, setComposerMode] = useState<"new" | "reply" | "forward">(
     "new",
   );
-  const [composerEmail, setComposerEmail] = useState<Email | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [signatures, setSignatures] = useState<EmailSignature[]>([]);
@@ -41,7 +40,7 @@ export default function MailPage() {
   const loadEmails = useCallback(async () => {
     setIsLoading(true);
     try {
-      const fetchedEmails = await emailClientService.getSentEmails();
+      const fetchedEmails = await emailClientService.getEmails();
       setEmails(fetchedEmails);
     } catch (error) {
       console.error("Failed to load emails:", error);
@@ -150,7 +149,7 @@ export default function MailPage() {
             clearInterval(pollInterval);
             setIsSyncing(false);
             console.error("Sync failed:", syncLog.errors);
-            alert("La synchronisation a échoué. Vérifiez la console.");
+            alert("Synchronization failed. Check the console.");
           }
         } catch (error) {
           console.error("Error checking sync status:", error);
@@ -163,16 +162,17 @@ export default function MailPage() {
         if (isSyncing) {
           setIsSyncing(false);
           alert(
-            "La synchronisation prend trop de temps. Elle continue en arrière-plan.",
+            "Synchronization is taking too long. It will continue in the background.",
           );
         }
       }, 120000);
     } catch (error) {
       console.error("Failed to start sync:", error);
-      alert("Impossible de démarrer la synchronisation.");
+      alert("Unable to start synchronization.");
       setIsSyncing(false);
     }
   };
+
 
   // Filter emails by folder and search
   const filteredEmails = emails.filter((email) => {
@@ -189,8 +189,11 @@ export default function MailPage() {
         email.to.some((addr) => addr.email.toLowerCase().includes(query))
       );
     }
-
     return true;
+  }).sort((a, b) => {
+    const dateA = new Date(a.receivedAt || a.sentAt || a.createdAt).getTime();
+    const dateB = new Date(b.receivedAt || b.sentAt || b.createdAt).getTime();
+    return dateB - dateA;
   });
 
   // Handle email selection

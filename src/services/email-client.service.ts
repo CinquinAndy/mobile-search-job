@@ -4,8 +4,6 @@
 
 import type {
   Email,
-  EmailSignature,
-  EmailTemplate,
 } from "@/types/email";
 import { EmailFolder } from "@/types/email";
 import { emailPbService } from "./email-pb.service";
@@ -16,13 +14,13 @@ import { getCurrentUser } from "./pocketbase.client";
  */
 export const emailClientService = {
   /**
-   * Get sent emails from PocketBase
+   * Get all emails from PocketBase for the current user
    */
-  async getSentEmails(): Promise<Email[]> {
+  async getEmails(): Promise<Email[]> {
     const user = getCurrentUser();
     if (!user) throw new Error("User not authenticated");
     
-    return emailPbService.getEmails(user.id, EmailFolder.SENT);
+    return emailPbService.getEmails(user.id);
   },
 
   /**
@@ -56,6 +54,7 @@ export const emailClientService = {
     subject: string;
     text: string;
     html?: string;
+    useProfessionalDesign?: boolean;
   }): Promise<{ id: string }> {
     const response = await fetch("/api/emails", {
       method: "POST",
@@ -68,6 +67,7 @@ export const emailClientService = {
         subject: params.subject,
         text: params.text,
         html: params.html,
+        useProfessionalDesign: params.useProfessionalDesign,
       }),
     });
 

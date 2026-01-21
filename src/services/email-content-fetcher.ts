@@ -29,10 +29,11 @@ export const resendThrottler = new ResendThrottler();
  */
 export async function fetchEmailContentThrottled(
   resendId: string,
+  type: "outbound" | "inbound" = "outbound",
 ): Promise<{ html?: string; text?: string }> {
   return resendThrottler.throttle(async () => {
-    // Call server-side API route
-    const response = await fetch(`/api/emails/content/${resendId}`);
+    // Call server-side API route with type parameter
+    const response = await fetch(`/api/emails/content/${resendId}?type=${type}`);
     const data = await response.json();
 
     if (!data.success) {

@@ -24,6 +24,7 @@ interface EmailComposerProps {
     subject: string;
     body: string;
     html?: string;
+    useProfessionalDesign?: boolean;
   }) => void | Promise<void>;
   onSaveDraft?: (params: {
     to: string[];
@@ -65,6 +66,7 @@ export function EmailComposer({
   const [selectedSignature, setSelectedSignature] = useState<string>(
     defaultSignature?.id || "",
   );
+  const [useProfessionalDesign, setUseProfessionalDesign] = useState(true);
 
   const handleTemplateChange = (templateId: string) => {
     setSelectedTemplate(templateId);
@@ -99,6 +101,17 @@ export function EmailComposer({
 
     setIsSending(true);
     try {
+      // If using professional design, strip the manual signature markers if they exist
+      // because the template includes its own professional signature.
+      let finalBody = body.trim();
+      if (useProfessionalDesign) {
+        const signatureMarker = "--\n";
+        const markerIndex = finalBody.lastIndexOf(signatureMarker);
+        if (markerIndex !== -1) {
+          finalBody = finalBody.substring(0, markerIndex).trim();
+        }
+      }
+
       await onSend({
         to: to
           .split(",")
@@ -119,7 +132,8 @@ export function EmailComposer({
                 .filter(Boolean)
             : undefined,
         subject: subject.trim(),
-        body: body.trim(),
+        body: finalBody,
+        useProfessionalDesign,
       });
       onClose();
     } catch (error) {
@@ -351,6 +365,23 @@ export function EmailComposer({
             </select>
           </div>
         )}
+
+        {/* Professional Design Toggle */}
+        <div className="flex items-center gap-2 p-2 bg-primary/5 rounded-lg border border-primary/10">
+          <input
+            id="use-pro-design"
+            type="checkbox"
+            checked={useProfessionalDesign}
+            onChange={(e) => setUseProfessionalDesign(e.target.checked)}
+            className="w-4 h-4 text-primary rounded border-border focus:ring-primary"
+          />
+          <label
+            htmlFor="use-pro-design"
+            className="text-xs font-bold text-primary uppercase tracking-wider cursor-pointer"
+          >
+            Use Professional React Email Design
+          </label>
+        </div>
       </div>
 
       {/* Footer Actions */}
