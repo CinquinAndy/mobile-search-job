@@ -12,6 +12,11 @@ async function verifyWebhookSignature(
   payload: string,
   headers: Headers,
 ): Promise<ResendWebhookPayload> {
+  console.log("[Webhook] Verifying signature...");
+  console.log("WEBHOOK_SECRET", WEBHOOK_SECRET);
+  console.log("payload", payload);
+  console.log("headers", headers);
+
   if (!WEBHOOK_SECRET) {
     throw new Error("RESEND_WEBHOOK_SECRET is not configured");
   }

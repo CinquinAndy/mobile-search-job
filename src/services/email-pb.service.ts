@@ -209,25 +209,36 @@ export const emailPbService = {
 
   /**
    * Save a single email (create or update)
+   * Handles race condition where webhook might create email before instant sync
    */
   async saveEmail(email: Email, userId: string): Promise<void> {
     try {
       const data = emailToPb(email, userId);
+      const resendId = email.resendId || email.id;
 
-      // Try to find existing email by resend_id
-      const existing = await getPb()
+      // Try to find existing email by resend_id using admin client
+      // (important: webhook creates with pbAdmin, so we need pbAdmin to find it)
+      const { pbAdmin } = await import("./pocketbase.server");
+      const existing = await pbAdmin
         .collection("emails")
-        .getFirstListItem(`resend_id = "${email.resendId || email.id}"`)
+        .getFirstListItem(`resend_id = "${resendId}"`)
         .catch(() => null);
 
       if (existing) {
-        // Update existing
-        await getPb().collection("emails").update(existing.id, data);
+        // Update existing email with full data (webhook might have created minimal record)
+        await pbAdmin.collection("emails").update(existing.id, data);
+        console.info(`[EmailPB] Updated existing email ${existing.id} for resend_id ${resendId}`);
       } else {
         // Create new
-        await getPb().collection("emails").create(data);
+        await pbAdmin.collection("emails").create(data);
+        console.info(`[EmailPB] Created email for resend_id ${resendId}`);
       }
-    } catch (error) {
+    } catch (error: any) {
+      // Handle unique constraint violation (race condition fallback)
+      if (error?.status === 400 && error?.response?.data?.resend_id) {
+        console.info(`[EmailPB] Email already exists (race condition), skipping: ${email.resendId || email.id}`);
+        return;
+      }
       console.error("Failed to save email:", error);
       throw error;
     }

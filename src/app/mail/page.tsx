@@ -1,6 +1,7 @@
 "use client";
 
 import { Mail, RefreshCw, Search, X } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { EmailComposer } from "@/components/mail/email-composer";
 import { EmailDetail } from "@/components/mail/email-detail";
@@ -9,9 +10,9 @@ import { EmailSidebar } from "@/components/mail/email-sidebar";
 import { EmailSyncModal } from "@/components/mail/email-sync-modal";
 import { cn } from "@/lib/utils";
 import { emailClientService } from "@/services/email-client.service";
+import { getCurrentUser } from "@/services/pocketbase.client";
 import { signatureService } from "@/services/signature.service";
 import { templateService } from "@/services/template.service";
-import { getCurrentUser } from "@/services/pocketbase.client";
 import type { Email, EmailSignature, EmailTemplate } from "@/types/email";
 import { EmailFolder } from "@/types/email";
 
@@ -79,6 +80,77 @@ export default function MailPage() {
     loadTemplates();
     loadSignatures();
   }, [loadEmails, loadTemplates, loadSignatures]);
+
+  // Subscribe to realtime email updates (for webhook-created emails)
+  useEffect(() => {
+    let unsubscribe: (() => void) | null = null;
+
+    const setupRealtime = async () => {
+      try {
+        const { getClientPB } = await import("@/services/pocketbase.client");
+        const pb = getClientPB();
+        
+        // Subscribe to emails collection changes
+        unsubscribe = await pb.collection("emails").subscribe("*", (e) => {
+          console.info(`[Mail] Realtime event: ${e.action} on email ${e.record.id}`);
+          
+          if (e.action === "create") {
+            // New email created (by webhook) - add to list
+            setEmails((prev) => {
+              // Check if already exists
+              if (prev.some((email) => email.id === e.record.id)) return prev;
+              
+              // Convert PB record to Email type
+              const newEmail = {
+                id: e.record.id,
+                resendId: e.record.resend_id,
+                folder: e.record.folder,
+                from: { email: e.record.from_email, name: e.record.from_name },
+                to: e.record.to_emails || [],
+                cc: e.record.cc_emails || [],
+                bcc: e.record.bcc_emails || [],
+                subject: e.record.subject,
+                body: e.record.body_text || "",
+                html: e.record.body_html,
+                status: e.record.status,
+                isRead: e.record.is_read,
+                isStarred: e.record.is_starred,
+                hasAttachments: e.record.has_attachments,
+                sentAt: e.record.sent_at,
+                receivedAt: e.record.received_at,
+                createdAt: e.record.created,
+                updatedAt: e.record.updated,
+              };
+              
+              return [newEmail, ...prev];
+            });
+          } else if (e.action === "update") {
+            // Email updated - refresh in list
+            setEmails((prev) =>
+              prev.map((email) =>
+                email.id === e.record.id
+                  ? { ...email, status: e.record.status }
+                  : email
+              )
+            );
+          }
+        });
+        
+        console.info("[Mail] Realtime subscription active for emails");
+      } catch (error) {
+        console.error("[Mail] Failed to setup realtime:", error);
+      }
+    };
+
+    setupRealtime();
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+        console.info("[Mail] Realtime subscription cleaned up");
+      }
+    };
+  }, []);
 
   // Load email content when an email is selected
   useEffect(() => {
@@ -253,8 +325,7 @@ export default function MailPage() {
         userId: user?.id,
       });
 
-      // Refresh emails after sending
-      await loadEmails();
+      // Close composer - email will appear via realtime subscription when webhook creates it
       setShowComposer(false);
     } catch (error) {
       console.error("Failed to send email:", error);
@@ -267,8 +338,10 @@ export default function MailPage() {
       {/* Header */}
       <header className="flex items-center justify-between p-4 border-b border-border bg-card">
         <div className="flex items-center gap-4">
-          <Mail className="w-6 h-6 text-primary" />
-          <h1 className="text-xl font-bold text-foreground">Mail</h1>
+          <Link href="/" className="flex items-center gap-2">
+            <Mail className="w-6 h-6 text-primary" />
+            <h1 className="text-xl font-bold text-foreground">Mail</h1>
+          </Link>
         </div>
 
         <div className="flex items-center gap-2">

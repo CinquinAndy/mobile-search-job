@@ -1,4 +1,3 @@
-import * as React from "react";
 import type {
   Email,
   EmailAddress,
@@ -8,7 +7,6 @@ import type {
 } from "@/types/email";
 import { EmailFolder, EmailStatus } from "@/types/email";
 import { resendService } from "./resend.service";
-import { emailPbService } from "./email-pb.service";
 
 /**
  * Email service for managing emails, drafts, and email operations
@@ -192,55 +190,9 @@ export const emailService = {
         throw new Error("Failed to send email - no ID returned");
       }
 
-      // If userId is provided, sync the email back to PocketBase immediately
-      if (params.userId) {
-        try {
-          // Construct the email object for saving
-          const sentEmail: Email = {
-            id: result.id,
-            resendId: result.id,
-            from: {
-              email: params.from || "contact@andy-cinquin.com",
-              name: "Andy Cinquin", // Default name for sent emails
-            },
-            to: Array.isArray(params.to)
-              ? params.to.map((e) => parseFullEmailString(e))
-              : [parseFullEmailString(params.to)],
-            cc: params.cc
-              ? Array.isArray(params.cc)
-                ? params.cc.map((e) => parseFullEmailString(e))
-                : [parseFullEmailString(params.cc)]
-              : [],
-            bcc: params.bcc
-              ? Array.isArray(params.bcc)
-                ? params.bcc.map((e) => parseFullEmailString(e))
-                : [parseFullEmailString(params.bcc)]
-              : [],
-            subject: params.subject,
-            body: params.text || "",
-            html: params.html,
-            status: EmailStatus.SENT,
-            folder: EmailFolder.SENT,
-            isRead: true,
-            isStarred: false,
-            hasAttachments: finalAttachments.length > 0,
-            sentAt: new Date().toISOString(),
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-
-          await emailPbService.saveEmail(sentEmail, params.userId);
-          console.info(
-            `[EmailService] Instant sync: Email ${result.id} saved to PocketBase`,
-          );
-        } catch (syncError) {
-          console.error(
-            `[EmailService] Failed to perform instant sync for ${result.id}:`,
-            syncError,
-          );
-          // Don't fail the whole request if sync fails, but log it
-        }
-      }
+      // Email will be created via webhook when Resend confirms delivery
+      // This ensures we have accurate status and timing from Resend
+      console.info(`[EmailService] Email ${result.id} sent, waiting for webhook to sync`);
 
       return { id: result.id };
     } catch (error) {
