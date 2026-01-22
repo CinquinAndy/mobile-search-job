@@ -87,7 +87,9 @@ export function EmailList({
                 </div>
                 <time className="text-[10px] text-muted-foreground uppercase tracking-wider flex-shrink-0">
                   {format(
-                    new Date(email.receivedAt || email.sentAt || email.createdAt),
+                    new Date(
+                      email.receivedAt || email.sentAt || email.createdAt,
+                    ),
                     "MMM d",
                   )}
                 </time>

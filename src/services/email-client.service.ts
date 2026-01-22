@@ -2,9 +2,7 @@
  * Client-side service for email operations via API routes
  */
 
-import type {
-  Email,
-} from "@/types/email";
+import type { Email } from "@/types/email";
 import { EmailFolder } from "@/types/email";
 import { emailPbService } from "./email-pb.service";
 import { getCurrentUser } from "./pocketbase.client";
@@ -19,7 +17,7 @@ export const emailClientService = {
   async getEmails(): Promise<Email[]> {
     const user = getCurrentUser();
     if (!user) throw new Error("User not authenticated");
-    
+
     return emailPbService.getEmails(user.id);
   },
 
@@ -29,7 +27,7 @@ export const emailClientService = {
   async getInbox(): Promise<Email[]> {
     const user = getCurrentUser();
     if (!user) throw new Error("User not authenticated");
-    
+
     return emailPbService.getEmails(user.id, EmailFolder.INBOX);
   },
 
@@ -155,7 +153,7 @@ export const emailClientService = {
   }): Promise<{ syncId: string; message: string }> {
     const user = getCurrentUser();
     if (!user) throw new Error("User not authenticated");
-    
+
     const response = await fetch("/api/emails/sync", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -182,11 +180,11 @@ export const emailClientService = {
   async getSyncStatus(syncId?: string): Promise<any> {
     const user = getCurrentUser();
     if (!user) throw new Error("User not authenticated");
-    
-    const url = syncId 
+
+    const url = syncId
       ? `/api/emails/sync?syncId=${syncId}`
       : `/api/emails/sync?userId=${user.id}`;
-      
+
     const response = await fetch(url);
     const data = await response.json();
 

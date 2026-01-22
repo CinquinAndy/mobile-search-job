@@ -379,7 +379,6 @@ export function EmailDetail({
             </div>
           </div>
         )}
-
       </div>
     </div>
   );

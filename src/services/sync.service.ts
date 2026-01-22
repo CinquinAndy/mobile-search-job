@@ -36,7 +36,10 @@ function normalizeDate(dateStr: string | null | undefined): string | null {
 /**
  * Helper to parse "Name <email@example.com>" format
  */
-function parseFullEmailString(emailStr: string): { email: string; name?: string } {
+function parseFullEmailString(emailStr: string): {
+  email: string;
+  name?: string;
+} {
   if (!emailStr) return { email: "" };
   const match = emailStr.match(/^(.*?)\s*<(.+?)>$/);
   if (match) {
@@ -145,7 +148,9 @@ export const syncService = {
             try {
               existingLog = await pb
                 .collection("email_logs")
-                .getFirstListItem(`external_id="${email.id}" && user="${userId}"`);
+                .getFirstListItem(
+                  `external_id="${email.id}" && user="${userId}"`,
+                );
             } catch {
               // Not found
             }
@@ -176,7 +181,9 @@ export const syncService = {
             }
           } catch (err: unknown) {
             const error = err as any;
-            const detail = error.response ? JSON.stringify(error.response, null, 2) : (error.message || String(err));
+            const detail = error.response
+              ? JSON.stringify(error.response, null, 2)
+              : error.message || String(err);
             console.error(
               `[SyncService] Failed to sync email ${email.id}:`,
               detail,
@@ -284,13 +291,17 @@ export const syncService = {
           // Clean names/emails
           const senderInfo = parseFullEmailString(rawSender);
           const sender = senderInfo.email;
-          const recipients = rawRecipients.map((r: string) => parseFullEmailString(r).email);
+          const recipients = rawRecipients.map(
+            (r: string) => parseFullEmailString(r).email,
+          );
 
           try {
             // Check if already exists
             const existingLog = await pb
               .collection("email_logs")
-              .getFirstListItem(`external_id="${typedEmail.id}" && user="${userId}"`)
+              .getFirstListItem(
+                `external_id="${typedEmail.id}" && user="${userId}"`,
+              )
               .catch(() => null);
 
             if (existingLog) {
@@ -334,7 +345,9 @@ export const syncService = {
             createdCount++;
           } catch (err: unknown) {
             const error = err as any;
-            const detail = error.response ? JSON.stringify(error.response, null, 2) : (error.message || String(err));
+            const detail = error.response
+              ? JSON.stringify(error.response, null, 2)
+              : error.message || String(err);
             console.error(
               `[SyncService] [${totalProcessed}] Failed to sync inbound email ${typedEmail.id}:`,
               detail,
@@ -587,9 +600,11 @@ export const syncService = {
           // Ensure date is formatted for PB
           const receivedAt = normalizeDate(log.sent_at || log.created);
           if (!receivedAt) {
-             console.warn(`[SyncService] SKIP: Could not determine valid date for log ${log.id}`);
-             skippedCount++;
-             continue;
+            console.warn(
+              `[SyncService] SKIP: Could not determine valid date for log ${log.id}`,
+            );
+            skippedCount++;
+            continue;
           }
 
           // Create response
@@ -638,8 +653,13 @@ export const syncService = {
             });
           }
         } catch (err: unknown) {
-          const error = err as { response?: { data?: unknown }; message?: string };
-          const detail = error.response ? JSON.stringify(error.response.data || error.response) : (error.message || String(err));
+          const error = err as {
+            response?: { data?: unknown };
+            message?: string;
+          };
+          const detail = error.response
+            ? JSON.stringify(error.response.data || error.response)
+            : error.message || String(err);
           console.error(
             `[SyncService] Failed to create response for log ${log.id}:`,
             detail,
@@ -802,7 +822,9 @@ export const syncService = {
       return { companyCreated, applicationCreated, companyId: company.id };
     } catch (err: unknown) {
       const error = err as { response?: { data?: unknown }; message?: string };
-      const detail = error.response ? JSON.stringify(error.response.data || error.response) : (error.message || String(err));
+      const detail = error.response
+        ? JSON.stringify(error.response.data || error.response)
+        : error.message || String(err);
       console.warn(
         `[SyncService] Failed to create/match for log ${logId}:`,
         detail,

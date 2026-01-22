@@ -22,7 +22,8 @@ export async function GET(
 
     // Extract query parameters
     const searchParams = request.nextUrl.searchParams;
-    const type = (searchParams.get("type") as "inbound" | "outbound") || "outbound";
+    const type =
+      (searchParams.get("type") as "inbound" | "outbound") || "outbound";
 
     // Fetch email content from Resend
     const emailContent = await resendService.getEmailContent(id, type);

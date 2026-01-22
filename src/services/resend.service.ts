@@ -51,7 +51,9 @@ export const resendService = {
   /**
    * Render a React Email component to HTML and Text
    */
-  async renderReactEmail(component: ReactElement): Promise<{ html: string; text: string }> {
+  async renderReactEmail(
+    component: ReactElement,
+  ): Promise<{ html: string; text: string }> {
     const html = await render(component);
     const text = await render(component, { plainText: true });
     return { html, text };
@@ -234,7 +236,7 @@ export const resendService = {
     if (!resend) throw new Error("Resend client not initialized");
 
     let response: any;
-    
+
     if (type === "inbound") {
       // Use receiving API for inbound emails
       response = await (resend.emails as any).receiving.get(id);

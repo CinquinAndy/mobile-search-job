@@ -15,7 +15,10 @@ import { emailPbService } from "./email-pb.service";
  */
 
 // Helper to parse "Name <email@example.com>" format
-function parseFullEmailString(emailStr: string): { email: string; name?: string } {
+function parseFullEmailString(emailStr: string): {
+  email: string;
+  name?: string;
+} {
   const match = emailStr.match(/^(.*?)\s*<(.+?)>$/);
   if (match) {
     return {
@@ -40,7 +43,9 @@ function convertResendEmail(
   },
   folder: EmailFolder = EmailFolder.SENT,
 ): Email {
-  const fromInfo = parseFullEmailString(resendEmail.from || "contact@andy-cinquin.com");
+  const fromInfo = parseFullEmailString(
+    resendEmail.from || "contact@andy-cinquin.com",
+  );
 
   return {
     id: resendEmail.id,
@@ -62,7 +67,8 @@ function convertResendEmail(
     isStarred: false,
     hasAttachments: false,
     sentAt: folder === EmailFolder.SENT ? resendEmail.created_at : undefined,
-    receivedAt: folder === EmailFolder.INBOX ? resendEmail.created_at : undefined,
+    receivedAt:
+      folder === EmailFolder.INBOX ? resendEmail.created_at : undefined,
     createdAt: resendEmail.created_at,
     updatedAt: resendEmail.created_at,
   };
@@ -99,7 +105,8 @@ export const emailService = {
    */
   async getInbox(dateFrom?: Date): Promise<Email[]> {
     try {
-      const receivedEmails = await resendService.listAllReceivedEmails(dateFrom);
+      const receivedEmails =
+        await resendService.listAllReceivedEmails(dateFrom);
 
       // Convert to our Email type using basic info
       // We don't fetch full details to avoid rate limiting
@@ -133,12 +140,14 @@ export const emailService = {
     try {
       let finalHtml = params.html;
       let finalText = params.text;
-      const finalAttachments = params.attachments ? [...params.attachments] : [];
+      const finalAttachments = params.attachments
+        ? [...params.attachments]
+        : [];
 
       if (params.useProfessionalDesign && params.text) {
         const { GeneralTemplate } = await import("@/emails/GeneralTemplate");
         const { html, text } = await resendService.renderReactEmail(
-          <GeneralTemplate content={params.text} />
+          <GeneralTemplate content={params.text} />,
         );
         finalHtml = html;
         finalText = text;
@@ -149,7 +158,10 @@ export const emailService = {
         try {
           const fs = await import("node:fs/promises");
           const path = await import("node:path");
-          const cvPath = path.join(process.cwd(), "EN_CvAndy-v15_compressed.pdf");
+          const cvPath = path.join(
+            process.cwd(),
+            "EN_CvAndy-v15_compressed.pdf",
+          );
           const cvBuffer = await fs.readFile(cvPath);
           const cvBase64 = cvBuffer.toString("base64");
 
@@ -218,9 +230,14 @@ export const emailService = {
           };
 
           await emailPbService.saveEmail(sentEmail, params.userId);
-          console.info(`[EmailService] Instant sync: Email ${result.id} saved to PocketBase`);
+          console.info(
+            `[EmailService] Instant sync: Email ${result.id} saved to PocketBase`,
+          );
         } catch (syncError) {
-          console.error(`[EmailService] Failed to perform instant sync for ${result.id}:`, syncError);
+          console.error(
+            `[EmailService] Failed to perform instant sync for ${result.id}:`,
+            syncError,
+          );
           // Don't fail the whole request if sync fails, but log it
         }
       }

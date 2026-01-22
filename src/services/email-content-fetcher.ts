@@ -9,13 +9,15 @@ class ResendThrottler {
   async throttle<T>(fn: () => Promise<T>): Promise<T> {
     const now = Date.now();
     const timeSinceLastCall = now - this.lastCallTime;
-    
+
     if (timeSinceLastCall < this.minDelay) {
       const waitTime = this.minDelay - timeSinceLastCall;
-      console.info(`[Throttler] Waiting ${waitTime}ms before next Resend call...`);
-      await new Promise(resolve => setTimeout(resolve, waitTime));
+      console.info(
+        `[Throttler] Waiting ${waitTime}ms before next Resend call...`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
     }
-    
+
     this.lastCallTime = Date.now();
     return fn();
   }
@@ -33,7 +35,9 @@ export async function fetchEmailContentThrottled(
 ): Promise<{ html?: string; text?: string }> {
   return resendThrottler.throttle(async () => {
     // Call server-side API route with type parameter
-    const response = await fetch(`/api/emails/content/${resendId}?type=${type}`);
+    const response = await fetch(
+      `/api/emails/content/${resendId}?type=${type}`,
+    );
     const data = await response.json();
 
     if (!data.success) {

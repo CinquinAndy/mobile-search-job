@@ -53,9 +53,7 @@ export function SyncModal({
               <Calendar className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-foreground">
-                Sync Emails
-              </h2>
+              <h2 className="text-lg font-bold text-foreground">Sync Emails</h2>
               <p className="text-xs text-muted-foreground">
                 Choose a synchronization period
               </p>
@@ -166,12 +164,10 @@ export function SyncModal({
           <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
             <p className="text-xs text-foreground/80">
               <strong className="text-primary">Note:</strong>{" "}
-              {syncType === "full" &&
-                "Synchronizing received and sent emails."}
+              {syncType === "full" && "Synchronizing received and sent emails."}
               {syncType === "received_only" &&
                 "Synchronizing only received emails."}
-              {syncType === "sent_only" &&
-                "Synchronizing only sent emails."}
+              {syncType === "sent_only" && "Synchronizing only sent emails."}
               {!dateFrom &&
                 !dateTo &&
                 " All available emails will be synchronized."}
@@ -205,7 +201,6 @@ export function SyncModal({
             {isSyncing ? "Syncing..." : "Sync Now"}
           </button>
         </div>
-
       </div>
     </div>
   );

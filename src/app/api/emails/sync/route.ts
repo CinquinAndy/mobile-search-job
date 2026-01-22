@@ -17,8 +17,10 @@ function formatPbDate(dateStr?: string | null): string | null {
 // Helper to convert Email to PocketBase format
 function emailToPb(email: Email, userId: string) {
   // Truncate body_text to 4900 chars to avoid PocketBase validation limit
-  const bodyText = email.body && email.body.length > 4900 ? 
-    email.body.substring(0, 4900) + "..." : email.body;
+  const bodyText =
+    email.body && email.body.length > 4900
+      ? email.body.substring(0, 4900) + "..."
+      : email.body;
 
   return {
     resend_id: email.resendId || email.id,
@@ -46,8 +48,6 @@ function emailToPb(email: Email, userId: string) {
   };
 }
 
-
-
 /**
  * Background email synchronization function
  * Fetches emails from Resend and stores them in PocketBase
@@ -62,7 +62,7 @@ async function syncEmailsInBackground(
   },
 ) {
   const startTime = Date.now();
-  
+
   try {
     // Update sync log to running
     await pbAdmin.collection("email_sync_logs").update(syncId, {
@@ -77,17 +77,20 @@ async function syncEmailsInBackground(
       console.info("[EmailSync] Fetching sent emails...");
       const sentEmails = await emailService.getSentEmails(options.dateFrom);
       emailsFetched += sentEmails.length;
-      
+
       // Save to PocketBase
       for (const email of sentEmails) {
         try {
           const data = emailToPb(email, userId);
-          
+
           // Try to find existing by resend_id
-          const existing = await pbAdmin.collection("emails").getFirstListItem(
-            `resend_id = "${email.resendId || email.id}" && user = "${userId}"`,
-          ).catch(() => null);
-          
+          const existing = await pbAdmin
+            .collection("emails")
+            .getFirstListItem(
+              `resend_id = "${email.resendId || email.id}" && user = "${userId}"`,
+            )
+            .catch(() => null);
+
           if (existing) {
             await pbAdmin.collection("emails").update(existing.id, data);
           } else {
@@ -96,7 +99,11 @@ async function syncEmailsInBackground(
           }
         } catch (error: unknown) {
           const err = error as any;
-          const detail = err.response ? JSON.stringify(err.response, null, 2) : (error instanceof Error ? error.message : String(error));
+          const detail = err.response
+            ? JSON.stringify(err.response, null, 2)
+            : error instanceof Error
+              ? error.message
+              : String(error);
           console.error(`Failed to save sent email ${email.id}:`, detail);
         }
       }
@@ -108,17 +115,20 @@ async function syncEmailsInBackground(
       try {
         const receivedEmails = await emailService.getInbox(options.dateFrom);
         emailsFetched += receivedEmails.length;
-        
+
         // Save to PocketBase
         for (const email of receivedEmails) {
           try {
             const data = emailToPb(email, userId);
-            
+
             // Try to find existing by resend_id
-            const existing = await pbAdmin.collection("emails").getFirstListItem(
-              `resend_id = "${email.resendId || email.id}" && user = "${userId}"`,
-            ).catch(() => null);
-            
+            const existing = await pbAdmin
+              .collection("emails")
+              .getFirstListItem(
+                `resend_id = "${email.resendId || email.id}" && user = "${userId}"`,
+              )
+              .catch(() => null);
+
             if (existing) {
               await pbAdmin.collection("emails").update(existing.id, data);
             } else {
@@ -127,12 +137,19 @@ async function syncEmailsInBackground(
             }
           } catch (error: unknown) {
             const err = error as any;
-            const detail = err.response ? JSON.stringify(err.response, null, 2) : (error instanceof Error ? error.message : String(error));
+            const detail = err.response
+              ? JSON.stringify(err.response, null, 2)
+              : error instanceof Error
+                ? error.message
+                : String(error);
             console.error(`Failed to save received email ${email.id}:`, detail);
           }
         }
       } catch (error) {
-        console.warn("[EmailSync] Could not fetch received emails (normal if not configured):", error);
+        console.warn(
+          "[EmailSync] Could not fetch received emails (normal if not configured):",
+          error,
+        );
       }
     }
 
@@ -151,18 +168,27 @@ async function syncEmailsInBackground(
     console.info(
       `[EmailSync] Completed sync ${syncId}: ${emailsFetched} fetched, ${emailsCreated} created in ${duration}ms`,
     );
-    } catch (error: unknown) {
+  } catch (error: unknown) {
     const err = error as any;
-    const detail = err.response ? JSON.stringify(err.response, null, 2) : (error instanceof Error ? error.message : String(error));
+    const detail = err.response
+      ? JSON.stringify(err.response, null, 2)
+      : error instanceof Error
+        ? error.message
+        : String(error);
     console.error(`[EmailSync] Failed sync ${syncId}:`, detail);
-    
+
     // Update sync log to failed
-    await pbAdmin.collection("email_sync_logs").update(syncId, {
-      status: "failed",
-      errors: [detail],
-      completed_at: new Date().toISOString(),
-      duration_ms: Date.now() - startTime,
-    }).catch(e => console.error("Failed to update sync log to failed status:", e));
+    await pbAdmin
+      .collection("email_sync_logs")
+      .update(syncId, {
+        status: "failed",
+        errors: [detail],
+        completed_at: new Date().toISOString(),
+        duration_ms: Date.now() - startTime,
+      })
+      .catch((e) =>
+        console.error("Failed to update sync log to failed status:", e),
+      );
   }
 }
 
@@ -229,7 +255,9 @@ export async function GET(request: Request) {
 
     if (syncId) {
       // Get specific sync log
-      const syncLog = await pbAdmin.collection("email_sync_logs").getOne(syncId);
+      const syncLog = await pbAdmin
+        .collection("email_sync_logs")
+        .getOne(syncId);
       return NextResponse.json({ success: true, syncLog });
     }
 
@@ -241,11 +269,11 @@ export async function GET(request: Request) {
     }
 
     //Get latest sync log for user
-    const syncLog = await pbAdmin.collection("email_sync_logs").getFirstListItem(
-      `user = "${userId}"`,
-      { sort: "-created" },
-    ).catch(() => null);
-    
+    const syncLog = await pbAdmin
+      .collection("email_sync_logs")
+      .getFirstListItem(`user = "${userId}"`, { sort: "-created" })
+      .catch(() => null);
+
     return NextResponse.json({ success: true, syncLog });
   } catch (error) {
     console.error("Failed to get sync status:", error);

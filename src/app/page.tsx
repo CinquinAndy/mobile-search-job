@@ -82,11 +82,13 @@ export default function Home() {
     [],
   );
 
-  const handleSync = async (params: {
-    syncType?: "full" | "sent_only" | "received_only";
-    dateFrom?: Date;
-    dateTo?: Date;
-  } = {}) => {
+  const handleSync = async (
+    params: {
+      syncType?: "full" | "sent_only" | "received_only";
+      dateFrom?: Date;
+      dateTo?: Date;
+    } = {},
+  ) => {
     if (!user?.id) {
       alert("You must be logged in to sync");
       return;
@@ -141,13 +143,7 @@ export default function Home() {
       return;
     }
 
-    const headers = [
-      "Company",
-      "Position",
-      "Status",
-      "First Contact",
-      "Days",
-    ];
+    const headers = ["Company", "Position", "Status", "First Contact", "Days"];
     const rows = dataToExport.map((app) => {
       const days = differenceInDays(
         new Date(),

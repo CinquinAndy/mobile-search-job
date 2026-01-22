@@ -60,8 +60,10 @@ function pbToEmail(record: any): Email {
 // Helper to convert our Email type to PocketBase format
 function emailToPb(email: Email, userId: string) {
   // Truncate body_text to 4900 chars to avoid PocketBase validation limit
-  const bodyText = email.body && email.body.length > 4900 ? 
-    email.body.substring(0, 4900) + "..." : email.body;
+  const bodyText =
+    email.body && email.body.length > 4900
+      ? email.body.substring(0, 4900) + "..."
+      : email.body;
 
   return {
     resend_id: email.resendId || email.id,
@@ -123,7 +125,7 @@ export const emailPbService = {
     try {
       // 1. Check if content already exists in PocketBase
       const record = await getPb().collection("emails").getOne(emailId);
-      
+
       // If we already have content, return it
       if (record.body_html || record.body_text) {
         console.info(`[EmailPB] Using cached content for email ${resendId}`);
@@ -134,17 +136,23 @@ export const emailPbService = {
       }
 
       // 2. Content not in cache - fetch from Resend with throttling
-      console.info(`[EmailPB] Fetching content for email ${resendId} from Resend...`);
-      
+      console.info(
+        `[EmailPB] Fetching content for email ${resendId} from Resend...`,
+      );
+
       const emailType = record.folder === "inbox" ? "inbound" : "outbound";
-      
-      const { fetchEmailContentThrottled } = await import("./email-content-fetcher");
+
+      const { fetchEmailContentThrottled } = await import(
+        "./email-content-fetcher"
+      );
       const content = await fetchEmailContentThrottled(resendId, emailType);
-      
+
       // 3. Update PocketBase with the content
       // Truncate body_text to 4900 chars to avoid PocketBase 5000 char validation limit
-      const bodyText = content.text ? 
-        (content.text.length > 4900 ? content.text.substring(0, 4900) + "..." : content.text) 
+      const bodyText = content.text
+        ? content.text.length > 4900
+          ? content.text.substring(0, 4900) + "..."
+          : content.text
         : content.text;
 
       await getPb().collection("emails").update(emailId, {
@@ -157,7 +165,10 @@ export const emailPbService = {
       return content;
     } catch (error: any) {
       if (error.response?.data) {
-        console.error(`[EmailPB] Validation failed for email ${emailId}:`, JSON.stringify(error.response.data, null, 2));
+        console.error(
+          `[EmailPB] Validation failed for email ${emailId}:`,
+          JSON.stringify(error.response.data, null, 2),
+        );
       }
       console.error(`Failed to fetch email content for ${emailId}:`, error);
       return {};

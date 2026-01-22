@@ -1,11 +1,4 @@
-import {
-  Column,
-  Img,
-  Link,
-  Row,
-  Section,
-  Text,
-} from "@react-email/components";
+import { Column, Img, Link, Row, Section, Text } from "@react-email/components";
 import * as React from "react";
 
 export const Signature = () => {
@@ -60,7 +53,10 @@ export const Signature = () => {
                 alt="Instagram"
               />
             </Link>
-            <Link href="https://linkedin.com/in/andy-cinquin/" style={socialLink}>
+            <Link
+              href="https://linkedin.com/in/andy-cinquin/"
+              style={socialLink}
+            >
               <Img
                 src="https://cdn.gifo.wisestamp.com/s/ld/0077b5/48/0/background.png"
                 width="24"

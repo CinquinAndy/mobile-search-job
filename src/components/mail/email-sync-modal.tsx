@@ -22,7 +22,9 @@ export function EmailSyncModal({
 }: EmailSyncModalProps) {
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
-  const [syncType, setSyncType] = useState<"full" | "sent_only" | "received_only">("full");
+  const [syncType, setSyncType] = useState<
+    "full" | "sent_only" | "received_only"
+  >("full");
 
   const handleSync = async () => {
     const fromDate = dateFrom ? new Date(dateFrom) : undefined;
@@ -47,9 +49,7 @@ export function EmailSyncModal({
               <Calendar className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-foreground">
-                Sync Emails
-              </h2>
+              <h2 className="text-lg font-bold text-foreground">Sync Emails</h2>
               <p className="text-xs text-muted-foreground">
                 Fetch the latest emails from Resend
               </p>
@@ -160,12 +160,10 @@ export function EmailSyncModal({
           <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
             <p className="text-xs text-foreground/80">
               <strong className="text-primary">Note:</strong>{" "}
-              {syncType === "full" &&
-                "Synchronizing received and sent emails."}
+              {syncType === "full" && "Synchronizing received and sent emails."}
               {syncType === "received_only" &&
                 "Synchronizing only received emails."}
-              {syncType === "sent_only" &&
-                "Synchronizing only sent emails."}
+              {syncType === "sent_only" && "Synchronizing only sent emails."}
               {!dateFrom &&
                 !dateTo &&
                 " All available emails will be synchronized."}
@@ -173,7 +171,6 @@ export function EmailSyncModal({
                 " Only emails within the selected period."}
             </p>
           </div>
-
         </div>
 
         {/* Footer */}
@@ -200,7 +197,6 @@ export function EmailSyncModal({
             {isSyncing ? "Syncing..." : "Sync Now"}
           </button>
         </div>
-
       </div>
     </div>
   );

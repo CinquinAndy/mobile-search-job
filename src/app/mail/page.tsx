@@ -84,7 +84,7 @@ export default function MailPage() {
   useEffect(() => {
     async function loadContent() {
       if (!selectedEmail || !selectedEmail.resendId) return;
-      
+
       // Skip if content already loaded
       if (selectedEmail.html || selectedEmail.body) return;
 
@@ -99,7 +99,11 @@ export default function MailPage() {
         setEmails((prevEmails) =>
           prevEmails.map((email) =>
             email.id === selectedEmail.id
-              ? { ...email, html: content.html, body: content.text || email.body }
+              ? {
+                  ...email,
+                  html: content.html,
+                  body: content.text || email.body,
+                }
               : email,
           ),
         );
@@ -174,28 +178,29 @@ export default function MailPage() {
     }
   };
 
-
   // Filter emails by folder and search
-  const filteredEmails = emails.filter((email) => {
-    // Folder filter
-    if (activeFolder !== email.folder) return false;
+  const filteredEmails = emails
+    .filter((email) => {
+      // Folder filter
+      if (activeFolder !== email.folder) return false;
 
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      return (
-        email.subject.toLowerCase().includes(query) ||
-        email.body.toLowerCase().includes(query) ||
-        email.from.email.toLowerCase().includes(query) ||
-        email.to.some((addr) => addr.email.toLowerCase().includes(query))
-      );
-    }
-    return true;
-  }).sort((a, b) => {
-    const dateA = new Date(a.receivedAt || a.sentAt || a.createdAt).getTime();
-    const dateB = new Date(b.receivedAt || b.sentAt || b.createdAt).getTime();
-    return dateB - dateA;
-  });
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        return (
+          email.subject.toLowerCase().includes(query) ||
+          email.body.toLowerCase().includes(query) ||
+          email.from.email.toLowerCase().includes(query) ||
+          email.to.some((addr) => addr.email.toLowerCase().includes(query))
+        );
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.receivedAt || a.sentAt || a.createdAt).getTime();
+      const dateB = new Date(b.receivedAt || b.sentAt || b.createdAt).getTime();
+      return dateB - dateA;
+    });
 
   // Handle email selection
   const handleSelectEmail = (email: Email) => {

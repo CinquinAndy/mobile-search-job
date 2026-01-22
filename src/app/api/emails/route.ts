@@ -52,7 +52,7 @@ export async function GET(request: Request) {
 
     // Read from PocketBase using admin
     const filter = `user = "${userId}" && folder = "${folder}"`;
-    
+
     const records = await pbAdmin.collection("emails").getFullList({
       filter,
       sort: "-created",
@@ -66,7 +66,8 @@ export async function GET(request: Request) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to fetch emails",
+        error:
+          error instanceof Error ? error.message : "Failed to fetch emails",
       },
       { status: 500 },
     );
