@@ -128,7 +128,9 @@ export default function Home() {
       ) {
         return false;
       }
-      const contactDate = new Date(app.firstContactAt || app.sentAt);
+      const contactDate = new Date(
+        app.lastFollowUpAt || app.firstContactAt || app.sentAt,
+      );
       return contactDate < sevenDaysAgo;
     });
   }, [applications]);

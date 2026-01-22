@@ -29,6 +29,9 @@ interface KanbanBoardProps {
 
 type ColumnId =
   | "contact"
+  | "clicked"
+  | "waiting"
+  | "responded"
   | "interview"
   | "rejected"
   | "rejected_later"
@@ -49,15 +52,30 @@ const COLUMNS: Column[] = [
       "sent",
       "delivered",
       "opened",
-      "clicked",
-      "responded",
       "queued",
       "scheduled",
       "suppressed",
       "delivery_delayed",
-      "offer",
     ],
     color: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
+  },
+  {
+    id: "clicked",
+    title: "Clicked",
+    statuses: ["clicked"],
+    color: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
+  },
+  {
+    id: "waiting",
+    title: "Waiting for Response",
+    statuses: ["waiting"],
+    color: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20",
+  },
+  {
+    id: "responded",
+    title: "Response Received",
+    statuses: ["responded", "offer"],
+    color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
   },
   {
     id: "interview",
@@ -90,6 +108,9 @@ const COLUMNS: Column[] = [
 // Map column ID to a default status for that column when dropped
 const COLUMN_TO_STATUS: Record<ColumnId, ApplicationStatus> = {
   contact: "sent",
+  clicked: "clicked",
+  waiting: "waiting",
+  responded: "responded",
   interview: "interview",
   rejected: "rejected",
   rejected_later: "rejected_later",
@@ -324,6 +345,7 @@ function KanbanCard({
 
   const showFollowUpSystem = [
     "contact",
+    "waiting",
     "sent",
     "delivered",
     "opened",
@@ -431,11 +453,14 @@ function MoveDropdown({
 
   const OPTIONS: { label: string; status: ApplicationStatus }[] = [
     { label: "Contact Sent", status: "sent" },
+    { label: "Clicked", status: "clicked" },
+    { label: "Waiting for Response", status: "waiting" },
+    { label: "Response Received", status: "responded" },
     { label: "Interview", status: "interview" },
+    { label: "Offer Received", status: "offer" },
     { label: "Categorical Refusal", status: "rejected" },
     { label: "Refuse Later", status: "rejected_later" },
     { label: "Refused After Interview", status: "rejected_after_interview" },
-    { label: "Offer Received", status: "offer" },
   ];
 
   return (
@@ -492,7 +517,8 @@ function MoveDropdown({
 
 function StatusSmallBadge({ status }: { status: string }) {
   const configs: Record<string, string> = {
-    responded: "bg-green-500",
+    waiting: "bg-indigo-500",
+    responded: "bg-emerald-500",
     interview: "bg-purple-500",
     offer: "bg-amber-500",
     rejected: "bg-red-500",

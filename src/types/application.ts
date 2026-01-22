@@ -16,6 +16,7 @@ export type EmailStatus =
 // Application-level status (can include custom statuses)
 export type ApplicationStatus =
   | EmailStatus
+  | "waiting" // Explicitly waiting for response
   | "responded" // We received a response
   | "interview" // Interview scheduled
   | "offer" // Received an offer
