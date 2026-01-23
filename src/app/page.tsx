@@ -131,7 +131,13 @@ export default function Home() {
       const contactDate = new Date(
         app.lastFollowUpAt || app.firstContactAt || app.sentAt,
       );
-      return contactDate < sevenDaysAgo;
+      const isSevenDaysOld = contactDate < sevenDaysAgo;
+
+      // Filter: Only Resend, exclude CSV imports
+      const isFromResend = app.isFromResend;
+      const isNotCsvImport = app.position !== "Non spécifié (Import CSV)";
+
+      return isSevenDaysOld && isFromResend && isNotCsvImport;
     });
   }, [applications]);
 
@@ -145,7 +151,14 @@ export default function Home() {
       return;
     }
 
-    const headers = ["Company", "Position", "Status", "First Contact", "Days"];
+    const headers = [
+      "Company",
+      "Position",
+      "Email",
+      "Status",
+      "First Contact",
+      "Days",
+    ];
     const rows = dataToExport.map((app) => {
       const days = differenceInDays(
         new Date(),
@@ -154,6 +167,7 @@ export default function Home() {
       return [
         app.company,
         app.position || "Not specified",
+        app.email || "N/A",
         app.status,
         new Date(app.firstContactAt || app.sentAt).toLocaleDateString("en-US"),
         days.toString(),

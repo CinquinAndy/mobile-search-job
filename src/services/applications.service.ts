@@ -21,6 +21,10 @@ interface ApplicationRecord {
   follow_up_count?: number;
   expand?: {
     company?: CompanyRecord;
+    "email_logs(application)"?: {
+      recipient: string;
+      provider: string;
+    }[];
   };
 }
 
@@ -44,21 +48,29 @@ export const applicationsService = {
       .collection("applications")
       .getFullList<ApplicationRecord>({
         sort: "-created",
-        expand: "company",
+        expand: "company,email_logs(application)",
       });
 
-    return records.map((record) => ({
-      id: record.id,
-      company: record.expand?.company?.name || "Unknown",
-      position: record.position,
-      status: record.status,
-      sentAt: record.created,
-      lastActivityAt: record.last_activity_at || record.updated,
-      lastResponseAt: record.last_response_at,
-      firstContactAt: record.first_contact_at || record.created,
-      lastFollowUpAt: record.last_follow_up_at,
-      followUpCount: record.follow_up_count || 0,
-    }));
+    return records.map((record) => {
+      const logs = record.expand?.["email_logs(application)"] || [];
+      const resendLog = logs.find((l) => l.provider === "resend");
+      const email = logs[0]?.recipient;
+
+      return {
+        id: record.id,
+        company: record.expand?.company?.name || "Unknown",
+        position: record.position,
+        status: record.status,
+        sentAt: record.created,
+        lastActivityAt: record.last_activity_at || record.updated,
+        lastResponseAt: record.last_response_at,
+        firstContactAt: record.first_contact_at || record.created,
+        lastFollowUpAt: record.last_follow_up_at,
+        followUpCount: record.follow_up_count || 0,
+        email: email,
+        isFromResend: !!resendLog,
+      };
+    });
   },
 
   async getApplication(id: string): Promise<JobApplication | null> {

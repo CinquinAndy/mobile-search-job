@@ -36,4 +36,6 @@ export interface JobApplication {
   lastFollowUpAt?: string;
   response?: string;
   followUpCount: number;
+  email?: string;
+  isFromResend?: boolean;
 }
