@@ -24,6 +24,8 @@ interface ApplicationRecord {
     "email_logs(application)"?: {
       recipient: string;
       provider: string;
+      direction: string;
+      sent_at: string;
     }[];
   };
 }
@@ -56,6 +58,20 @@ export const applicationsService = {
       const resendLog = logs.find((l) => l.provider === "resend");
       const email = logs[0]?.recipient;
 
+      // Count only RESEND outbound emails for follow-ups
+      const resendOutboundLogs = logs
+        .filter((l) => l.provider === "resend" && l.direction === "outbound")
+        .sort((a, b) => {
+          const dateA = new Date(a.sent_at).getTime();
+          const dateB = new Date(b.sent_at).getTime();
+          return dateA - dateB;
+        });
+
+      // Follow-ups = all emails after the first one
+      const resendFollowUpCount = resendOutboundLogs.length > 1 
+        ? resendOutboundLogs.length - 1 
+        : 0;
+
       return {
         id: record.id,
         company: record.expand?.company?.name || "Unknown",
@@ -66,7 +82,7 @@ export const applicationsService = {
         lastResponseAt: record.last_response_at,
         firstContactAt: record.first_contact_at || record.created,
         lastFollowUpAt: record.last_follow_up_at,
-        followUpCount: record.follow_up_count || 0,
+        followUpCount: resendFollowUpCount, // Use Resend-only count
         email: email,
         isFromResend: !!resendLog,
       };

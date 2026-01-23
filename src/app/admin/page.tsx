@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import * as React from "react";
 import {
+  cleanupBccEmailLogsAction,
   createCompaniesAction,
   createResponsesAction,
   importAwwwardsCsvsAction,
@@ -170,6 +171,10 @@ export default function AdminPage() {
   const [importCsvResult, setImportCsvResult] =
     React.useState<ActionResult | null>(null);
 
+  const [cleanupBccLoading, setCleanupBccLoading] = React.useState(false);
+  const [cleanupBccResult, setCleanupBccResult] =
+    React.useState<ActionResult | null>(null);
+
   const handleSyncEmailLogs = async () => {
     if (!user?.id) return;
     setSyncLogsLoading(true);
@@ -299,6 +304,18 @@ export default function AdminPage() {
       setImportCsvResult(result);
     } finally {
       setImportCsvLoading(false);
+    }
+  };
+
+  const handleCleanupBccLogs = async () => {
+    if (!user?.id) return;
+    setCleanupBccLoading(true);
+    setCleanupBccResult(null);
+    try {
+      const result = await cleanupBccEmailLogsAction(user.id);
+      setCleanupBccResult(result);
+    } finally {
+      setCleanupBccLoading(false);
     }
   };
 
@@ -450,6 +467,18 @@ export default function AdminPage() {
           result={importCsvResult}
           buttonText="Import CSVs"
           buttonColor="bg-emerald-500 text-white hover:bg-emerald-600"
+        />
+
+        {/* Clean Bcc Email Logs */}
+        <ActionCard
+          title="Clean Bcc Email Logs"
+          description="Delete incorrect email_logs from Bcc recipients (personal emails). Fixes duplicate follow-up counts."
+          icon={<Trash2 className="w-5 h-5 text-orange-500" />}
+          onClick={handleCleanupBccLogs}
+          isLoading={cleanupBccLoading}
+          result={cleanupBccResult}
+          buttonText="Clean Bcc Logs"
+          buttonColor="bg-orange-500 text-white hover:bg-orange-600"
         />
       </div>
 

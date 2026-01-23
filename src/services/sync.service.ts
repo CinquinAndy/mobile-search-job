@@ -933,6 +933,60 @@ export const syncService = {
   },
 
   /**
+   * Clean up incorrect email_logs created from Bcc recipients
+   * Deletes outbound email_logs where recipient is a personal email (gmail.com, etc.)
+   */
+  async cleanupBccEmailLogs(userId: string) {
+    const pb = await getAdminPB();
+    console.info("[SyncService] Cleaning up Bcc email logs...");
+
+    let deletedCount = 0;
+
+    try {
+      // Get all outbound email_logs for this user
+      const logs = await pb.collection("email_logs").getFullList({
+        filter: `user="${userId}" && direction="outbound" && provider="resend"`,
+      });
+
+      console.info(`[SyncService] Found ${logs.length} outbound logs to check`);
+
+      // Personal email domains that shouldn't be recipients for outbound emails
+      const personalDomains = [
+        "gmail.com",
+        "outlook.com",
+        "hotmail.com",
+        "yahoo.com",
+        "icloud.com",
+        "me.com",
+      ];
+
+      for (const log of logs) {
+        const recipient = log.recipient as string;
+        if (!recipient) continue;
+
+        const domain = recipient.split("@")[1]?.toLowerCase();
+        
+        // If recipient is a personal email, it's likely a Bcc event
+        if (domain && personalDomains.includes(domain)) {
+          console.info(
+            `[SyncService] Deleting Bcc log: ${log.id} (${recipient})`,
+          );
+          await pb.collection("email_logs").delete(log.id);
+          deletedCount++;
+        }
+      }
+
+      console.info(
+        `[SyncService] Cleanup complete. Deleted ${deletedCount} Bcc logs`,
+      );
+      return { deletedCount, totalChecked: logs.length };
+    } catch (error) {
+      console.error("[SyncService] Bcc cleanup failed:", error);
+      throw error;
+    }
+  },
+
+  /**
    * DANGER: Reset all sync data for a user
    * Deletes: email_logs, responses, applications, companies
    */

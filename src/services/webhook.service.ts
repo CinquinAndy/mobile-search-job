@@ -66,6 +66,23 @@ export const webhookService = {
         // Extract email from "Name <email>" if present
         const recipientMatch = recipientRaw.match(/<(.+?)>/);
         const recipientEmail = recipientMatch?.[1] || recipientRaw;
+        
+        // Check if this event is for a Bcc recipient
+        // Resend sends separate events for Bcc, check headers
+        const headers = (payload as any).data?.headers || [];
+        const bccHeader = headers.find((h: any) => h.name === "Bcc");
+        const isBccEvent = bccHeader && bccHeader.value.includes(recipientEmail);
+        
+        // Skip processing if this is a Bcc event to avoid duplicate applications
+        if (isBccEvent) {
+          console.info(`[Webhook] Skipping Bcc event for ${recipientEmail}`);
+          return {
+            success: true,
+            action: `skipped_bcc_${type}`,
+            details: { emailId, recipientEmail, reason: "bcc_recipient" },
+          };
+        }
+        
         const domain = extractDomain(recipientEmail);
         
         // Only skip our own domains (sender domains)

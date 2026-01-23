@@ -274,3 +274,25 @@ export async function importAwwwardsCsvsAction(userId: string) {
     };
   }
 }
+
+/**
+ * Clean up incorrect email_logs from Bcc recipients
+ */
+export async function cleanupBccEmailLogsAction(userId: string) {
+  if (!userId) {
+    return { success: false, error: "User ID is required" };
+  }
+
+  try {
+    const results = await syncService.cleanupBccEmailLogs(userId);
+    revalidatePath("/");
+    revalidatePath("/admin");
+    return { success: true, data: results };
+  } catch (error) {
+    console.error("Action Error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}

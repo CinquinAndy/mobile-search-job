@@ -109,6 +109,7 @@ export default function Home() {
   };
 
   // Filter applications that are 7+ days old without positive response
+  // J+7 = 7 days since FIRST CONTACT with NO follow-ups sent
   const j7Applications = useMemo(() => {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -128,16 +129,19 @@ export default function Home() {
       ) {
         return false;
       }
-      const contactDate = new Date(
-        app.lastFollowUpAt || app.firstContactAt || app.sentAt,
-      );
-      const isSevenDaysOld = contactDate < sevenDaysAgo;
+
+      // Use ONLY first contact date (not lastFollowUpAt)
+      const firstContactDate = new Date(app.firstContactAt || app.sentAt);
+      const isSevenDaysOld = firstContactDate < sevenDaysAgo;
+
+      // Exclude if any follow-ups have been sent
+      const hasNoFollowUps = (app.followUpCount || 0) === 0;
 
       // Filter: Only Resend, exclude CSV imports
       const isFromResend = app.isFromResend;
       const isNotCsvImport = app.position !== "Non spécifié (Import CSV)";
 
-      return isSevenDaysOld && isFromResend && isNotCsvImport;
+      return isSevenDaysOld && hasNoFollowUps && isFromResend && isNotCsvImport;
     });
   }, [applications]);
 

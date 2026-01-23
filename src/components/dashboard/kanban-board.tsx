@@ -428,6 +428,25 @@ function KanbanCard({
 
           {/* Navigation buttons */}
           <div className="flex items-center gap-1 ml-auto">
+            <a
+              href={`/applications/${application.id}`}
+              className="h-8 w-8 flex items-center justify-center rounded-lg bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors"
+              title="View details"
+              aria-label="View application details"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="w-3.5 h-3.5"
+              >
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+            </a>
             <MoveDropdown
               id={application.id}
               currentStatus={application.status}
