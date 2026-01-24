@@ -987,6 +987,501 @@ export const syncService = {
   },
 
   /**
+   * Merge duplicate companies by base name
+   * Groups companies like takt.com, takt.ca, takt@gmail.com under one "takt" company
+   */
+  async mergeCompanyDuplicates(userId: string) {
+    const pb = await getAdminPB();
+    console.info("[SyncService] Merging duplicate companies...");
+
+    let mergedCount = 0;
+    let keptCount = 0;
+
+    try {
+      // Get all companies for this user
+      const companies = await pb.collection("companies").getFullList({
+        filter: `user="${userId}"`,
+      });
+
+      console.info(
+        `[SyncService] Found ${companies.length} companies to analyze`,
+      );
+
+      // Group companies by base name
+      const groupedByBaseName: Record<
+        string,
+        Array<{ id: string; name: string; domain: string }>
+      > = {};
+
+      for (const company of companies) {
+        const domain = company.domain as string;
+        if (!domain) continue;
+
+        // Extract base name using the same logic as webhook
+        let baseName: string;
+        const GENERIC_DOMAINS = [
+          "gmail.com",
+          "outlook.com",
+          "hotmail.com",
+          "yahoo.com",
+          "icloud.com",
+          "me.com",
+        ];
+
+        if (domain.includes("@")) {
+          // It's an email (e.g., "takt@gmail.com")
+          const prefix = domain.split("@")[0];
+          baseName = prefix?.toLowerCase() || "";
+        } else if (GENERIC_DOMAINS.some((gd) => domain.endsWith(gd))) {
+          // It's a generic domain email
+          baseName = domain.split("@")[0]?.toLowerCase() || domain;
+        } else {
+          // It's a professional domain
+          const parts = domain.split(".");
+          if (parts.length >= 2) {
+            baseName = parts.slice(0, -1).join(".");
+          } else {
+            baseName = domain;
+          }
+        }
+
+        // Skip if baseName is empty or invalid
+        if (!baseName || baseName.trim() === "") {
+          console.warn(
+            `[SyncService] Skipping company ${company.id} - empty baseName from domain: ${domain}`,
+          );
+          continue;
+        }
+
+        baseName = baseName.toLowerCase().trim();
+
+        if (!groupedByBaseName[baseName]) {
+          groupedByBaseName[baseName] = [];
+        }
+
+        groupedByBaseName[baseName].push({
+          id: company.id,
+          name: company.name as string,
+          domain: domain,
+        });
+      }
+
+      console.info(
+        `[SyncService] Grouped into ${Object.keys(groupedByBaseName).length} base names`,
+      );
+      
+      // Log first 10 groups for debugging
+      let debugCount = 0;
+      for (const [baseName, companies] of Object.entries(groupedByBaseName)) {
+        if (debugCount < 10 || companies.length > 1) {
+          console.info(
+            `[SyncService] Group "${baseName}": ${companies.length} companies - ${companies.map((c) => c.domain).join(", ")}`,
+          );
+          debugCount++;
+        }
+      }
+
+      // Merge duplicates
+      for (const [baseName, companyGroup] of Object.entries(
+        groupedByBaseName,
+      )) {
+        if (companyGroup.length <= 1) continue; // No duplicates
+
+        console.info(
+          `[SyncService] Found ${companyGroup.length} companies for "${baseName}": ${companyGroup.map((c) => c.domain).join(", ")}`,
+        );
+
+        // Keep the first one (or choose based on criteria)
+        const primaryCompany = companyGroup[0];
+        const duplicates = companyGroup.slice(1);
+
+        keptCount++;
+
+        // Update primary company domain to base name
+        await pb.collection("companies").update(primaryCompany.id, {
+          domain: baseName,
+          name:
+            baseName.charAt(0).toUpperCase() + baseName.slice(1), // Capitalize
+        });
+
+        // Merge applications and email_logs from duplicates to primary
+        for (const duplicate of duplicates) {
+          // Move applications
+          const apps = await pb.collection("applications").getFullList({
+            filter: `company="${duplicate.id}"`,
+          });
+          for (const app of apps) {
+            await pb.collection("applications").update(app.id, {
+              company: primaryCompany.id,
+            });
+          }
+
+          // Move email_logs
+          const logs = await pb.collection("email_logs").getFullList({
+            filter: `company="${duplicate.id}"`,
+          });
+          for (const log of logs) {
+            await pb.collection("email_logs").update(log.id, {
+              company: primaryCompany.id,
+            });
+          }
+
+          // Delete duplicate company
+          await pb.collection("companies").delete(duplicate.id);
+          mergedCount++;
+
+          console.info(
+            `[SyncService] Merged ${duplicate.domain} into ${baseName}`,
+          );
+        }
+      }
+
+      console.info(
+        `[SyncService] Company merge complete. Kept ${keptCount}, merged ${mergedCount}`,
+      );
+      return { keptCount, mergedCount, totalProcessed: companies.length };
+    } catch (error) {
+      console.error("[SyncService] Company merge failed:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Merge duplicate applications for the same company
+   * Keeps the oldest application and consolidates all email_logs
+   */
+  async mergeDuplicateApplications(userId: string) {
+    const pb = await getAdminPB();
+    console.info("[SyncService] Merging duplicate applications...");
+
+    let mergedCount = 0;
+    let keptCount = 0;
+
+    try {
+      // Get all companies for this user
+      const companies = await pb.collection("companies").getFullList({
+        filter: `user="${userId}"`,
+      });
+
+      console.info(
+        `[SyncService] Found ${companies.length} companies to check`,
+      );
+
+      for (const company of companies) {
+        // Get all applications for this company
+        const applications = await pb.collection("applications").getFullList({
+          filter: `company="${company.id}"`,
+          sort: "created", // Oldest first
+        });
+
+        if (applications.length <= 1) continue; // No duplicates
+
+        console.info(
+          `[SyncService] Found ${applications.length} applications for company "${company.name}" (${company.domain})`,
+        );
+
+        // Keep the first (oldest) application
+        const primaryApp = applications[0];
+        const duplicates = applications.slice(1);
+
+        keptCount++;
+
+        // Merge email_logs from duplicates to primary
+        for (const duplicate of duplicates) {
+          // Move all email_logs to primary application
+          const logs = await pb.collection("email_logs").getFullList({
+            filter: `application="${duplicate.id}"`,
+          });
+
+          for (const log of logs) {
+            await pb.collection("email_logs").update(log.id, {
+              application: primaryApp.id,
+            });
+          }
+
+          console.info(
+            `[SyncService] Moved ${logs.length} email_logs from app ${duplicate.id} to ${primaryApp.id}`,
+          );
+
+          // Delete duplicate application
+          await pb.collection("applications").delete(duplicate.id);
+          mergedCount++;
+        }
+
+        // Recalculate follow-up count for primary application
+        const allLogs = await pb.collection("email_logs").getFullList({
+          filter: `application="${primaryApp.id}" && provider="resend" && direction="outbound"`,
+          sort: "sent_at",
+        });
+
+        const followUpCount = allLogs.length > 1 ? allLogs.length - 1 : 0;
+        const firstContactAt = allLogs[0]?.sent_at || primaryApp.created;
+        const lastFollowUpAt =
+          allLogs.length > 1 ? allLogs[allLogs.length - 1].sent_at : null;
+
+        await pb.collection("applications").update(primaryApp.id, {
+          follow_up_count: followUpCount,
+          first_contact_at: firstContactAt,
+          last_follow_up_at: lastFollowUpAt,
+        });
+
+        console.info(
+          `[SyncService] Updated app ${primaryApp.id} - followUpCount: ${followUpCount}`,
+        );
+      }
+
+      console.info(
+        `[SyncService] Application merge complete. Kept ${keptCount}, merged ${mergedCount}`,
+      );
+      return { keptCount, mergedCount, totalCompanies: companies.length };
+    } catch (error) {
+      console.error("[SyncService] Application merge failed:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Detect and merge company duplicates with smart name matching
+   * Handles cases like "DD" vs "DD London", "Technorely" across different emails
+   */
+  async detectAndMergeSmartDuplicates(userId: string) {
+    const pb = await getAdminPB();
+    console.info("[SyncService] Detecting smart duplicates...");
+
+    let mergedCount = 0;
+    let detectedGroups = 0;
+
+    try {
+      // Get all companies
+      const companies = await pb.collection("companies").getFullList({
+        filter: `user="${userId}"`,
+      });
+
+      console.info(
+        `[SyncService] Scanning ${companies.length} companies for smart duplicates`,
+      );
+
+      // Normalize company name for matching
+      const normalizeCompanyName = (name: string, domain: string): string => {
+        // Start with name or domain
+        let normalized = (name || domain || "").toLowerCase().trim();
+
+        // 1. Basic cleanup - remove special characters and punctuation
+        normalized = normalized.replace(/[®™©]/g, "");
+
+        // 2. Handle domains/emails if the name is just a domain/email
+        if (normalized.includes(".") && !normalized.includes(" ")) {
+          normalized = normalized.split(".")[0];
+        } else if (normalized.includes("@")) {
+          normalized = normalized.split("@")[0];
+        }
+
+        // 3. Remove common prefixes (order matters: longer first)
+        const prefixes = ["agence", "agency", "studio", "the"];
+        for (const p of prefixes) {
+          const prefixRegex = new RegExp(`^${p}\\s+`, "i");
+          if (prefixRegex.test(normalized)) {
+            normalized = normalized.replace(prefixRegex, "");
+          }
+        }
+
+        // 3.1 Common suffixes and keywords to strip 
+        // Order by length descending to match "communications" before "communication"
+        const keywords = [
+          "communications",
+          "communication",
+          "interactive",
+          "solutions",
+          "production",
+          "productions",
+          "creative",
+          "company",
+          "digital",
+          "studios",
+          "studio",
+          "agency",
+          "london",
+          "design",
+          "house",
+          "group",
+          "canada",
+          "nyc",
+          "labs",
+          "lab",
+          "inc",
+          "ltd",
+          "llc",
+          "co",
+        ];
+
+        // Clean up punctuation to make word boundaries clearer
+        normalized = normalized.replace(/[^\w\s-]/g, " ");
+
+        for (const kw of keywords) {
+          // Case 1: Word boundary (e.g., "DD London" -> "DD")
+          const wordRegex = new RegExp(`\\s+${kw}$`, "i");
+          if (wordRegex.test(normalized)) {
+            normalized = normalized.replace(wordRegex, "");
+            continue; 
+          }
+
+          // Case 2: Attached (e.g., "DDLondon" -> "DD", "Dactylocommunication" -> "Dactylo")
+          const attachedRegex = new RegExp(`${kw}$`, "i");
+          if (
+            attachedRegex.test(normalized) &&
+            normalized.length >= kw.length + 2 // Changed to >= to catch "DDLondon" (8 char)
+          ) {
+            normalized = normalized.replace(attachedRegex, "");
+          }
+        }
+
+        // 4. Final step: remove all remaining non-alphanumeric and spaces
+        return normalized.replace(/[^\w]/g, "").trim();
+      };
+
+      // Group companies by normalized name
+      const groupedByNormalizedName: Record<
+        string,
+        Array<{ id: string; name: string; domain: string; original: any }>
+      > = {};
+
+      for (const company of companies) {
+        const normalized = normalizeCompanyName(
+          company.name as string,
+          company.domain as string,
+        );
+
+        if (!normalized) continue;
+
+        if (!groupedByNormalizedName[normalized]) {
+          groupedByNormalizedName[normalized] = [];
+        }
+
+        groupedByNormalizedName[normalized].push({
+          id: company.id,
+          name: company.name as string,
+          domain: company.domain as string,
+          original: company,
+        });
+      }
+
+      // Log groups with duplicates
+      console.info(`[SyncService] Found ${Object.keys(groupedByNormalizedName).length} unique normalized names`);
+      
+      const duplicateGroups = Object.entries(groupedByNormalizedName).filter(
+        ([_, companies]) => companies.length > 1
+      );
+      
+      console.info(`[SyncService] Groups with 2+ companies (duplicates):`);
+      for (const [normalized, companies] of duplicateGroups) {
+        console.info(
+          `  "${normalized}": ${companies.length} companies - ${companies.map((c) => `"${c.name}" (${c.domain})`).join(", ")}`,
+        );
+      }
+      
+      // Search for specific companies mentioned by user
+      const searchTerms = ["dd", "technorely", "tux"];
+      console.info(`[SyncService] Searching for specific terms: ${searchTerms.join(", ")}`);
+      for (const term of searchTerms) {
+        const matches = Object.entries(groupedByNormalizedName).filter(
+          ([normalized]) => normalized.includes(term)
+        );
+        if (matches.length > 0) {
+          console.info(`  Found matches for "${term}":`);
+          for (const [normalized, companies] of matches) {
+            console.info(
+              `    "${normalized}": ${companies.length} - ${companies.map((c) => `"${c.name}" (${c.domain})`).join(", ")}`,
+            );
+          }
+        }
+      }
+
+      // Merge duplicates
+      for (const [normalized, companyGroup] of Object.entries(
+        groupedByNormalizedName,
+      )) {
+        if (companyGroup.length <= 1) continue;
+
+        detectedGroups++;
+
+        console.info(
+          `[SyncService] 🔍 Found ${companyGroup.length} companies matching "${normalized}":`,
+        );
+        for (const comp of companyGroup) {
+          console.info(
+            `  - "${comp.name}" (${comp.domain}) [ID: ${comp.id}]`,
+          );
+        }
+
+        // Keep the one with the most applications (most active)
+        const companiesWithAppCounts = await Promise.all(
+          companyGroup.map(async (comp) => {
+            const apps = await pb.collection("applications").getFullList({
+              filter: `company="${comp.id}"`,
+            });
+            return { ...comp, appCount: apps.length };
+          }),
+        );
+
+        // Sort by app count (descending) - keep the most active one
+        companiesWithAppCounts.sort((a, b) => b.appCount - a.appCount);
+        const primaryCompany = companiesWithAppCounts[0];
+        const duplicates = companiesWithAppCounts.slice(1);
+
+        console.info(
+          `[SyncService] ✅ Keeping "${primaryCompany.name}" as primary (${primaryCompany.appCount} apps)`,
+        );
+
+        // Merge applications and email_logs to primary
+        for (const duplicate of duplicates) {
+          // Move applications
+          const apps = await pb.collection("applications").getFullList({
+            filter: `company="${duplicate.id}"`,
+          });
+
+          for (const app of apps) {
+            await pb.collection("applications").update(app.id, {
+              company: primaryCompany.id,
+            });
+          }
+
+          // Move email_logs
+          const logs = await pb.collection("email_logs").getFullList({
+            filter: `company="${duplicate.id}"`,
+          });
+
+          for (const log of logs) {
+            await pb.collection("email_logs").update(log.id, {
+              company: primaryCompany.id,
+            });
+          }
+
+          console.info(
+            `[SyncService] 🔀 Merged "${duplicate.name}" (${duplicate.appCount} apps, ${logs.length} logs) into primary`,
+          );
+
+          // Delete duplicate company
+          await pb.collection("companies").delete(duplicate.id);
+          mergedCount++;
+        }
+      }
+
+      console.info(
+        `[SyncService] ✨ Smart merge complete. Detected ${detectedGroups} groups, merged ${mergedCount} duplicates`,
+      );
+
+      return {
+        detectedGroups,
+        mergedCount,
+        totalScanned: companies.length,
+      };
+    } catch (error) {
+      console.error("[SyncService] Smart duplicate detection failed:", error);
+      throw error;
+    }
+  },
+
+  /**
    * DANGER: Reset all sync data for a user
    * Deletes: email_logs, responses, applications, companies
    */

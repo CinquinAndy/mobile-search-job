@@ -296,3 +296,68 @@ export async function cleanupBccEmailLogsAction(userId: string) {
     };
   }
 }
+/**
+ * Merge duplicate companies by base name
+ */
+export async function mergeCompanyDuplicatesAction(userId: string) {
+  if (!userId) {
+    return { success: false, error: "User ID is required" };
+  }
+
+  try {
+    const results = await syncService.mergeCompanyDuplicates(userId);
+    revalidatePath("/");
+    revalidatePath("/admin");
+    return { success: true, data: results };
+  } catch (error) {
+    console.error("Action Error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
+ * Merge duplicate applications for the same company
+ */
+export async function mergeDuplicateApplicationsAction(userId: string) {
+  if (!userId) {
+    return { success: false, error: "User ID is required" };
+  }
+
+  try {
+    const results = await syncService.mergeDuplicateApplications(userId);
+    revalidatePath("/");
+    revalidatePath("/admin");
+    return { success: true, data: results };
+  } catch (error) {
+    console.error("Action Error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
+ * Detect and merge smart company duplicates
+ */
+export async function detectAndMergeSmartDuplicatesAction(userId: string) {
+  if (!userId) {
+    return { success: false, error: "User ID is required" };
+  }
+
+  try {
+    const results = await syncService.detectAndMergeSmartDuplicates(userId);
+    revalidatePath("/");
+    revalidatePath("/admin");
+    return { success: true, data: results };
+  } catch (error) {
+    console.error("Action Error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}

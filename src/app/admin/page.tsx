@@ -7,6 +7,7 @@ import {
   CheckCircle,
   Database,
   FileSpreadsheet,
+  GitMerge,
   Inbox,
   Link,
   Mail,
@@ -21,8 +22,11 @@ import {
   cleanupBccEmailLogsAction,
   createCompaniesAction,
   createResponsesAction,
+  detectAndMergeSmartDuplicatesAction,
   importAwwwardsCsvsAction,
   linkLogsToCompaniesAction,
+  mergeCompanyDuplicatesAction,
+  mergeDuplicateApplicationsAction,
   reconcileApplicationStatusesAction,
   reconcileFollowUpTrackingAction,
   resetAllDataAction,
@@ -175,6 +179,19 @@ export default function AdminPage() {
   const [cleanupBccResult, setCleanupBccResult] =
     React.useState<ActionResult | null>(null);
 
+  const [ mergeCompaniesLoading, setMergeCompaniesLoading] =
+    React.useState(false);
+  const [mergeCompaniesResult, setMergeCompaniesResult] =
+    React.useState<ActionResult | null>(null);
+
+  const [mergeAppsLoading, setMergeAppsLoading] = React.useState(false);
+  const [mergeAppsResult, setMergeAppsResult] =
+    React.useState<ActionResult | null>(null);
+
+  const [smartDupeLoading, setSmartDupeLoading] = React.useState(false);
+  const [smartDupeResult, setSmartDupeResult] =
+    React.useState<ActionResult | null>(null);
+
   const handleSyncEmailLogs = async () => {
     if (!user?.id) return;
     setSyncLogsLoading(true);
@@ -316,6 +333,42 @@ export default function AdminPage() {
       setCleanupBccResult(result);
     } finally {
       setCleanupBccLoading(false);
+    }
+  };
+
+  const handleMergeCompanies = async () => {
+    if (!user?.id) return;
+    setMergeCompaniesLoading(true);
+    setMergeCompaniesResult(null);
+    try {
+      const result = await mergeCompanyDuplicatesAction(user.id);
+      setMergeCompaniesResult(result);
+    } finally {
+      setMergeCompaniesLoading(false);
+    }
+  };
+
+  const handleMergeApps = async () => {
+    if (!user?.id) return;
+    setMergeAppsLoading(true);
+    setMergeAppsResult(null);
+    try {
+      const result = await mergeDuplicateApplicationsAction(user.id);
+      setMergeAppsResult(result);
+    } finally {
+      setMergeAppsLoading(false);
+    }
+  };
+
+  const handleSmartDupe = async () => {
+    if (!user?.id) return;
+    setSmartDupeLoading(true);
+    setSmartDupeResult(null);
+    try {
+      const result = await detectAndMergeSmartDuplicatesAction(user.id);
+      setSmartDupeResult(result);
+    } finally {
+      setSmartDupeLoading(false);
     }
   };
 
@@ -479,6 +532,42 @@ export default function AdminPage() {
           result={cleanupBccResult}
           buttonText="Clean Bcc Logs"
           buttonColor="bg-orange-500 text-white hover:bg-orange-600"
+        />
+
+        {/* Merge Company Duplicates */}
+        <ActionCard
+          title="Merge Company Duplicates"
+          description="Group companies with different domain variants (takt.com, takt.ca, takt@gmail.com) into one company."
+          icon={<GitMerge className="w-5 h-5 text-blue-500" />}
+          onClick={handleMergeCompanies}
+          isLoading={mergeCompaniesLoading}
+          result={mergeCompaniesResult}
+          buttonText="Merge Companies"
+          buttonColor="bg-blue-500 text-white hover:bg-blue-600"
+        />
+
+        {/* Merge Duplicate Applications */}
+        <ActionCard
+          title="Merge Duplicate Applications"
+          description="Fix J+7! Consolidate multiple applications for the same company (e.g., 2 Takt apps) and recalculate followUpCount."
+          icon={<GitMerge className="w-5 h-5 text-purple-500" />}
+          onClick={handleMergeApps}
+          isLoading={mergeAppsLoading}
+          result={mergeAppsResult}
+          buttonText="Merge Applications"
+          buttonColor="bg-purple-500 text-white hover:bg-purple-600"
+        />
+
+        {/* Smart Duplicate Detection */}
+        <ActionCard
+          title="🔍 Smart Duplicate Detection"
+          description="Intelligent matching! Merges DD+DD London, Technorely@gmail+@technorely.com, etc. Normalizes names."
+          icon={<Zap className="w-5 h-5 text-yellow-500" />}
+          onClick={handleSmartDupe}
+          isLoading={smartDupeLoading}
+          result={smartDupeResult}
+          buttonText="Detect & Merge"
+          buttonColor="bg-yellow-500 text-white hover:bg-yellow-600"
         />
       </div>
 

@@ -22,16 +22,42 @@ function extractDomain(email: string): string {
 }
 
 /**
+ * Extract the base company name from an email address to group domain variants
+ * Examples:
+ * - contact@takt.com → "takt"
+ * - contact@takt.ca → "takt"
+ * - takt@gmail.com → "takt"
+ * - hello@studio-paul.world → "studio-paul"
+ */
+function getCompanyBaseName(email: string): string {
+  const domain = extractDomain(email);
+  
+  // For generic providers, use the email prefix
+  if (GENERIC_DOMAINS.includes(domain)) {
+    const prefix = email.split("@")[0].toLowerCase().trim();
+    return prefix;
+  }
+  
+  // For professional domains, extract the base name
+  // Remove common TLDs and keep the company name
+  const parts = domain.split(".");
+  
+  // If it's a simple domain like "takt.com", return "takt"
+  if (parts.length === 2) {
+    return parts[0];
+  }
+  
+  // If it's a multi-part domain like "studio-paul.world" or "takt.design"
+  // Return everything except the last part (TLD)
+  return parts.slice(0, -1).join(".");
+}
+
+/**
  * Helper to get an entity identifier for a recipient.
- * For common providers (Gmail, etc.), we use the full email.
- * For professional domains, we use just the domain.
+ * Now uses the base company name to group domain variants.
  */
 function getEntityIdentifier(email: string): string {
-  const domain = extractDomain(email);
-  if (GENERIC_DOMAINS.includes(domain)) {
-    return email.toLowerCase().trim();
-  }
-  return domain;
+  return getCompanyBaseName(email);
 }
 
 /**

@@ -82,10 +82,12 @@ export const useAuthStore = create<AuthStore>()(
         try {
           const currentUser = getCurrentUser();
           if (currentUser) {
+            // If PB has a user, try to refresh it
             const refreshedUser = await refreshAuth();
             set({ user: refreshedUser, isInitialized: true });
           } else {
-            set({ isInitialized: true });
+            // If PB has no user, ensure Zustand store is also cleared
+            set({ user: null, isInitialized: true });
           }
         } catch {
           set({ user: null, isInitialized: true });
