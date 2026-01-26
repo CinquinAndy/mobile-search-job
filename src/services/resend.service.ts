@@ -1,6 +1,6 @@
 import { render } from "@react-email/render";
-import { Resend } from "resend";
 import type { ReactElement } from "react";
+import { Resend } from "resend";
 
 const RESEND_KEY = process.env.RESEND_KEY;
 
@@ -76,6 +76,7 @@ export const resendService = {
   }) {
     if (!resend) throw new Error("Resend client not initialized");
 
+    // biome-ignore lint/suspicious/noExplicitAny: Resend SDK typing issue
     const response = await (resend.emails.send as any)({
       from: params.from || "Andy Cinquin <contact@andy-cinquin.com>", // Use your verified domain
       to: params.to,
@@ -235,10 +236,12 @@ export const resendService = {
   async getEmailContent(id: string, type: "outbound" | "inbound" = "outbound") {
     if (!resend) throw new Error("Resend client not initialized");
 
+    // biome-ignore lint/suspicious/noExplicitAny: Temporary any for response
     let response: any;
 
     if (type === "inbound") {
       // Use receiving API for inbound emails
+      // biome-ignore lint/suspicious/noExplicitAny: Resend receiving API missing in types
       response = await (resend.emails as any).receiving.get(id);
     } else {
       // Use standard emails API for outbound emails

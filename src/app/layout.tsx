@@ -16,6 +16,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "JobTracker AI",
   description: "Track your job applications with ease",
+  manifest: "/manifest.json",
+  themeColor: "#000000",
+  viewport:
+    "minimum-scale=1, initial-scale=1, width=device-width, shrink-to-fit=no, user-scalable=no, viewport-fit=cover",
 };
 
 export default function RootLayout({

@@ -180,6 +180,7 @@ export const syncService = {
               createdCount++;
             }
           } catch (err: unknown) {
+            // biome-ignore lint/suspicious/noExplicitAny: Error casting
             const error = err as any;
             const detail = error.response
               ? JSON.stringify(error.response, null, 2)
@@ -344,6 +345,7 @@ export const syncService = {
             });
             createdCount++;
           } catch (err: unknown) {
+            // biome-ignore lint/suspicious/noExplicitAny: Error casting
             const error = err as any;
             const detail = error.response
               ? JSON.stringify(error.response, null, 2)
@@ -965,7 +967,7 @@ export const syncService = {
         if (!recipient) continue;
 
         const domain = recipient.split("@")[1]?.toLowerCase();
-        
+
         // If recipient is a personal email, it's likely a Bcc event
         if (domain && personalDomains.includes(domain)) {
           console.info(
@@ -1069,7 +1071,7 @@ export const syncService = {
       console.info(
         `[SyncService] Grouped into ${Object.keys(groupedByBaseName).length} base names`,
       );
-      
+
       // Log first 10 groups for debugging
       let debugCount = 0;
       for (const [baseName, companies] of Object.entries(groupedByBaseName)) {
@@ -1100,8 +1102,7 @@ export const syncService = {
         // Update primary company domain to base name
         await pb.collection("companies").update(primaryCompany.id, {
           domain: baseName,
-          name:
-            baseName.charAt(0).toUpperCase() + baseName.slice(1), // Capitalize
+          name: baseName.charAt(0).toUpperCase() + baseName.slice(1), // Capitalize
         });
 
         // Merge applications and email_logs from duplicates to primary
@@ -1285,7 +1286,7 @@ export const syncService = {
           }
         }
 
-        // 3.1 Common suffixes and keywords to strip 
+        // 3.1 Common suffixes and keywords to strip
         // Order by length descending to match "communications" before "communication"
         const keywords = [
           "communications",
@@ -1322,7 +1323,7 @@ export const syncService = {
           const wordRegex = new RegExp(`\\s+${kw}$`, "i");
           if (wordRegex.test(normalized)) {
             normalized = normalized.replace(wordRegex, "");
-            continue; 
+            continue;
           }
 
           // Case 2: Attached (e.g., "DDLondon" -> "DD", "Dactylocommunication" -> "Dactylo")
@@ -1342,6 +1343,7 @@ export const syncService = {
       // Group companies by normalized name
       const groupedByNormalizedName: Record<
         string,
+        // biome-ignore lint/suspicious/noExplicitAny: Original record typing
         Array<{ id: string; name: string; domain: string; original: any }>
       > = {};
 
@@ -1366,25 +1368,29 @@ export const syncService = {
       }
 
       // Log groups with duplicates
-      console.info(`[SyncService] Found ${Object.keys(groupedByNormalizedName).length} unique normalized names`);
-      
-      const duplicateGroups = Object.entries(groupedByNormalizedName).filter(
-        ([_, companies]) => companies.length > 1
+      console.info(
+        `[SyncService] Found ${Object.keys(groupedByNormalizedName).length} unique normalized names`,
       );
-      
+
+      const duplicateGroups = Object.entries(groupedByNormalizedName).filter(
+        ([_, companies]) => companies.length > 1,
+      );
+
       console.info(`[SyncService] Groups with 2+ companies (duplicates):`);
       for (const [normalized, companies] of duplicateGroups) {
         console.info(
           `  "${normalized}": ${companies.length} companies - ${companies.map((c) => `"${c.name}" (${c.domain})`).join(", ")}`,
         );
       }
-      
+
       // Search for specific companies mentioned by user
       const searchTerms = ["dd", "technorely", "tux"];
-      console.info(`[SyncService] Searching for specific terms: ${searchTerms.join(", ")}`);
+      console.info(
+        `[SyncService] Searching for specific terms: ${searchTerms.join(", ")}`,
+      );
       for (const term of searchTerms) {
         const matches = Object.entries(groupedByNormalizedName).filter(
-          ([normalized]) => normalized.includes(term)
+          ([normalized]) => normalized.includes(term),
         );
         if (matches.length > 0) {
           console.info(`  Found matches for "${term}":`);
@@ -1408,9 +1414,7 @@ export const syncService = {
           `[SyncService] 🔍 Found ${companyGroup.length} companies matching "${normalized}":`,
         );
         for (const comp of companyGroup) {
-          console.info(
-            `  - "${comp.name}" (${comp.domain}) [ID: ${comp.id}]`,
-          );
+          console.info(`  - "${comp.name}" (${comp.domain}) [ID: ${comp.id}]`);
         }
 
         // Keep the one with the most applications (most active)
@@ -2014,9 +2018,9 @@ export const syncService = {
       const parts = dateStr.split("/");
       if (parts.length !== 3) return null;
       try {
-        const day = Number.parseInt(parts[0]);
-        const month = Number.parseInt(parts[1]) - 1;
-        const year = Number.parseInt(parts[2]);
+        const day = Number.parseInt(parts[0], 10);
+        const month = Number.parseInt(parts[1], 10) - 1;
+        const year = Number.parseInt(parts[2], 10);
         const date = new Date(year, month, day, 12, 0, 0);
         if (Number.isNaN(date.getTime())) return null;
         return date.toISOString();

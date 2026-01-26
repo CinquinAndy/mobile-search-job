@@ -98,6 +98,7 @@ async function syncEmailsInBackground(
             emailsCreated++;
           }
         } catch (error: unknown) {
+          // biome-ignore lint/suspicious/noExplicitAny: Error casting
           const err = error as any;
           const detail = err.response
             ? JSON.stringify(err.response, null, 2)
@@ -136,6 +137,7 @@ async function syncEmailsInBackground(
               emailsCreated++;
             }
           } catch (error: unknown) {
+            // biome-ignore lint/suspicious/noExplicitAny: Error casting
             const err = error as any;
             const detail = err.response
               ? JSON.stringify(err.response, null, 2)
@@ -169,6 +171,7 @@ async function syncEmailsInBackground(
       `[EmailSync] Completed sync ${syncId}: ${emailsFetched} fetched, ${emailsCreated} created in ${duration}ms`,
     );
   } catch (error: unknown) {
+    // biome-ignore lint/suspicious/noExplicitAny: Error casting
     const err = error as any;
     const detail = err.response
       ? JSON.stringify(err.response, null, 2)

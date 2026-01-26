@@ -177,6 +177,7 @@ export const emailClientService = {
   /**
    * Get synchronization status
    */
+  // biome-ignore lint/suspicious/noExplicitAny: Sync log typing
   async getSyncStatus(syncId?: string): Promise<any> {
     const user = getCurrentUser();
     if (!user) throw new Error("User not authenticated");

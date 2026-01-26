@@ -192,7 +192,9 @@ export const emailService = {
 
       // Email will be created via webhook when Resend confirms delivery
       // This ensures we have accurate status and timing from Resend
-      console.info(`[EmailService] Email ${result.id} sent, waiting for webhook to sync`);
+      console.info(
+        `[EmailService] Email ${result.id} sent, waiting for webhook to sync`,
+      );
 
       return { id: result.id };
     } catch (error) {

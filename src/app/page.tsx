@@ -117,68 +117,114 @@ export default function Home() {
 
     // 1. Normalize and Group ALL applications by company
     const normalize = (name: string, email?: string) => {
-      if (email && email.includes("@")) {
+      if (email?.includes("@")) {
         const domain = email.split("@")[1].toLowerCase();
         const publicProviders = [
-          "gmail.com", "hotmail.com", "outlook.com", "yahoo.com", 
-          "icloud.com", "me.com", "aol.com", "protonmail.com", 
-          "proton.me", "live.com", "msn.com"
+          "gmail.com",
+          "hotmail.com",
+          "outlook.com",
+          "yahoo.com",
+          "icloud.com",
+          "me.com",
+          "aol.com",
+          "protonmail.com",
+          "proton.me",
+          "live.com",
+          "msn.com",
         ];
-        if (!publicProviders.includes(domain)) return domain.split(".")[0]; 
+        if (!publicProviders.includes(domain)) return domain.split(".")[0];
       }
-      return name.toLowerCase().replace(/\.(com|ca|org|net|agency|ws|xyz|io|fr|me|dev|be|global|studio|design|health|net).*$/, "").replace(/^(https?:\/\/)?(www\.)?/, "").replace(/\s+(ltd|inc|corp|agency|group|solutions|studio|design|communication|llc|sa|sas)$/, "").replace(/[^a-z0-9]/g, "").trim();
+      return name
+        .toLowerCase()
+        .replace(
+          /\.(com|ca|org|net|agency|ws|xyz|io|fr|me|dev|be|global|studio|design|health|net).*$/,
+          "",
+        )
+        .replace(/^(https?:\/\/)?(www\.)?/, "")
+        .replace(
+          /\s+(ltd|inc|corp|agency|group|solutions|studio|design|communication|llc|sa|sas)$/,
+          "",
+        )
+        .replace(/[^a-z0-9]/g, "")
+        .trim();
     };
 
-    const companyGroups = new Map<string, {
-      apps: JobApplication[],
-      mostRecentDate: Date,
-      oldestDate: Date
-    }>();
+    const companyGroups = new Map<
+      string,
+      {
+        apps: JobApplication[];
+        mostRecentDate: Date;
+        oldestDate: Date;
+      }
+    >();
 
     for (const app of applications) {
       const key = normalize(app.company, app.email);
-      const contactDate = new Date(app.lastFollowUpAt || app.firstContactAt || app.sentAt);
-      
-      const group = companyGroups.get(key) || { 
-        apps: [], 
-        mostRecentDate: new Date(0), 
-        oldestDate: new Date(8640000000000000) 
+      const contactDate = new Date(
+        app.lastFollowUpAt || app.firstContactAt || app.sentAt,
+      );
+
+      const group = companyGroups.get(key) || {
+        apps: [],
+        mostRecentDate: new Date(0),
+        oldestDate: new Date(8640000000000000),
       };
-      
+
       group.apps.push(app);
-      if (contactDate > group.mostRecentDate) group.mostRecentDate = contactDate;
+      if (contactDate > group.mostRecentDate)
+        group.mostRecentDate = contactDate;
       if (contactDate < group.oldestDate) group.oldestDate = contactDate;
-      
+
       companyGroups.set(key, group);
     }
 
     // 2. Filter groups where the most recent contact across ANY app is older than 7 days
     return Array.from(companyGroups.values())
-      .filter(group => {
+      .filter((group) => {
         // Must have at least one Resend app in a "waiting" status to show up
-        const hasWaitingResendApp = group.apps.some(app => 
-          app.isFromResend && 
-          app.position !== "Non spécifié (Import CSV)" &&
-          ["sent", "delivered", "opened", "clicked", "queued", "scheduled", "delivery_delayed"].includes(app.status)
+        const hasWaitingResendApp = group.apps.some(
+          (app) =>
+            app.isFromResend &&
+            app.position !== "Non spécifié (Import CSV)" &&
+            [
+              "sent",
+              "delivered",
+              "opened",
+              "clicked",
+              "queued",
+              "scheduled",
+              "delivery_delayed",
+            ].includes(app.status),
         );
-        
+
         // AND the most recent contact overall (manual or resend) must be > 7 days ago
         return hasWaitingResendApp && group.mostRecentDate < sevenDaysAgo;
       })
-      .map(group => {
+      .map((group) => {
         // Return the oldest "waiting" Resend app to represent the group for follow-up
         return group.apps
-          .filter(app => app.isFromResend && app.position !== "Non spécifié (Import CSV)")
+          .filter(
+            (app) =>
+              app.isFromResend && app.position !== "Non spécifié (Import CSV)",
+          )
           .sort((a, b) => {
-            const dateA = new Date(a.lastFollowUpAt || a.firstContactAt || a.sentAt).getTime();
-            const dateB = new Date(b.lastFollowUpAt || b.firstContactAt || b.sentAt).getTime();
+            const dateA = new Date(
+              a.lastFollowUpAt || a.firstContactAt || a.sentAt,
+            ).getTime();
+            const dateB = new Date(
+              b.lastFollowUpAt || b.firstContactAt || b.sentAt,
+            ).getTime();
             return dateA - dateB;
           })[0];
       })
-      .filter(app => !!app) // Ensure we found a representative
+      .filter((app) => !!app) // Ensure we found a representative
       .sort((a, b) => {
-        const dateA = new Date(a.lastFollowUpAt || a.firstContactAt || a.sentAt).getTime();
-        const dateB = new Date(b.lastFollowUpAt || b.firstContactAt || b.sentAt).getTime();
+        const dateA = new Date(
+          a.lastFollowUpAt || a.firstContactAt || a.sentAt,
+        ).getTime();
+        const dateB = new Date(
+          b.lastFollowUpAt || b.firstContactAt || b.sentAt,
+        ).getTime();
         return dateA - dateB;
       });
   }, [applications]);

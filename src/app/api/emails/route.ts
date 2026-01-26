@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { pbAdmin } from "@/services/pocketbase.server";
 import { emailService } from "@/services/email.service";
+import { pbAdmin } from "@/services/pocketbase.server";
 import type { Email, EmailFolder } from "@/types/email";
 
 // Helper to convert PocketBase email to our Email type
+// biome-ignore lint/suspicious/noExplicitAny: PB Record Model typing
 function pbToEmail(record: any): Email {
   return {
     id: record.id,
@@ -18,6 +19,7 @@ function pbToEmail(record: any): Email {
     subject: record.subject,
     body: record.body_text || "",
     html: record.body_html,
+    // biome-ignore lint/suspicious/noExplicitAny: PB record status typing
     status: record.status as any,
     folder: record.folder as EmailFolder,
     threadId: record.thread_id,

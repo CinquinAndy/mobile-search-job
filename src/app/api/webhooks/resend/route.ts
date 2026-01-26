@@ -5,6 +5,17 @@ import type { ResendWebhookPayload } from "@/types/webhook";
 
 const WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET;
 
+import webPush from "web-push";
+import { pbAdmin } from "@/services/pocketbase.server";
+
+if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webPush.setVapidDetails(
+    "mailto:contact@andy-cinquin.fr",
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY,
+  );
+}
+
 /**
  * Verify Resend webhook signature using Svix
  */
@@ -65,6 +76,50 @@ export async function POST(request: Request) {
 
     // Process the webhook event
     const result = await webhookService.processWebhookEvent(event);
+
+    // Send push notification
+    try {
+      const subscriptions = await pbAdmin
+        .collection("push_subscriptions")
+        .getFullList();
+
+      const message = `Email Update: ${event.type}`;
+      // extracted from 'From: Name <email>' usually
+      const from = event.data.from || "Unknown";
+      const body = `From: ${from}\nSubject: ${event.data.subject}`;
+
+      const notificationPayload = JSON.stringify({
+        title: message,
+        body: body,
+        url: "/applications",
+      });
+
+      await Promise.all(
+        subscriptions.map(async (sub) => {
+          try {
+            if (!sub.endpoint || !sub.keys) return;
+
+            await webPush.sendNotification(
+              {
+                endpoint: sub.endpoint,
+                keys: sub.keys,
+              },
+              notificationPayload,
+            );
+          } catch (err: unknown) {
+            console.error("Failed to send notification to", sub.id, err);
+            // Check for 410 Gone or 404 Not Found
+            const statusCode = (err as { statusCode?: number })?.statusCode;
+            if (statusCode === 410 || statusCode === 404) {
+              // Subscription expired, remove it
+              await pbAdmin.collection("push_subscriptions").delete(sub.id);
+            }
+          }
+        }),
+      );
+    } catch (pushError) {
+      console.error("Error sending push notifications:", pushError);
+    }
 
     return NextResponse.json({
       ...result,

@@ -11,7 +11,14 @@ const DEFAULT_USER_ID = "zdc29r3eunp1318";
 /**
  * Helper to identify if a domain is a generic provider (Gmail, etc.)
  */
-const GENERIC_DOMAINS = ["gmail.com", "outlook.com", "hotmail.com", "yahoo.com", "icloud.com", "me.com"];
+const GENERIC_DOMAINS = [
+  "gmail.com",
+  "outlook.com",
+  "hotmail.com",
+  "yahoo.com",
+  "icloud.com",
+  "me.com",
+];
 
 /**
  * Helper to extract domain from email address
@@ -31,22 +38,22 @@ function extractDomain(email: string): string {
  */
 function getCompanyBaseName(email: string): string {
   const domain = extractDomain(email);
-  
+
   // For generic providers, use the email prefix
   if (GENERIC_DOMAINS.includes(domain)) {
     const prefix = email.split("@")[0].toLowerCase().trim();
     return prefix;
   }
-  
+
   // For professional domains, extract the base name
   // Remove common TLDs and keep the company name
   const parts = domain.split(".");
-  
+
   // If it's a simple domain like "takt.com", return "takt"
   if (parts.length === 2) {
     return parts[0];
   }
-  
+
   // If it's a multi-part domain like "studio-paul.world" or "takt.design"
   // Return everything except the last part (TLD)
   return parts.slice(0, -1).join(".");
@@ -92,13 +99,15 @@ export const webhookService = {
         // Extract email from "Name <email>" if present
         const recipientMatch = recipientRaw.match(/<(.+?)>/);
         const recipientEmail = recipientMatch?.[1] || recipientRaw;
-        
+
         // Check if this event is for a Bcc recipient
         // Resend sends separate events for Bcc, check headers
+        // biome-ignore lint/suspicious/noExplicitAny: Headers access
         const headers = (payload as any).data?.headers || [];
+        // biome-ignore lint/suspicious/noExplicitAny: Header type
         const bccHeader = headers.find((h: any) => h.name === "Bcc");
-        const isBccEvent = bccHeader && bccHeader.value.includes(recipientEmail);
-        
+        const isBccEvent = bccHeader?.value.includes(recipientEmail);
+
         // Skip processing if this is a Bcc event to avoid duplicate applications
         if (isBccEvent) {
           console.info(`[Webhook] Skipping Bcc event for ${recipientEmail}`);
@@ -108,9 +117,9 @@ export const webhookService = {
             details: { emailId, recipientEmail, reason: "bcc_recipient" },
           };
         }
-        
+
         const domain = extractDomain(recipientEmail);
-        
+
         // Only skip our own domains (sender domains)
         const myDomains = ["andy-cinquin.com", "cinquin-andy.fr"];
         if (domain && !myDomains.includes(domain)) {
@@ -169,7 +178,7 @@ export const webhookService = {
   ): Promise<boolean> {
     try {
       const status = WEBHOOK_TO_EMAIL_STATUS[eventType];
-      
+
       // Find email by resend_id
       const email = await pbAdmin
         .collection("emails")
@@ -178,38 +187,52 @@ export const webhookService = {
 
       if (!email) {
         // Email doesn't exist yet - create it with full details from Resend API
-        console.info(`[Webhook] No email found with resend_id ${resendId}, fetching full details from Resend`);
-        
+        console.info(
+          `[Webhook] No email found with resend_id ${resendId}, fetching full details from Resend`,
+        );
+
         // Fetch full email details from Resend API
         const { resendService } = await import("./resend.service");
         let fullEmailData: { html?: string | null; text?: string | null } = {};
-        
+
         try {
           const emailDetails = await resendService.getEmail(resendId);
           fullEmailData = {
             html: emailDetails.html,
             text: emailDetails.text,
           };
-          console.info(`[Webhook] Fetched email content from Resend for ${resendId}`);
+          console.info(
+            `[Webhook] Fetched email content from Resend for ${resendId}`,
+          );
         } catch (fetchError) {
-          console.warn(`[Webhook] Could not fetch email content from Resend: ${fetchError}`);
+          console.warn(
+            `[Webhook] Could not fetch email content from Resend: ${fetchError}`,
+          );
           // Continue without content - we'll still create the email record
         }
-        
+
         // Parse sender email
-        const senderMatch = payload.data.from?.match(/<(.+?)>/) || [null, payload.data.from];
-        const senderEmail = senderMatch[1] || payload.data.from || "contact@andy-cinquin.com";
-        const senderName = payload.data.from?.replace(/<.+>/, "").trim() || "Andy Cinquin";
-        
+        const senderMatch = payload.data.from?.match(/<(.+?)>/) || [
+          null,
+          payload.data.from,
+        ];
+        const senderEmail =
+          senderMatch[1] || payload.data.from || "contact@andy-cinquin.com";
+        const senderName =
+          payload.data.from?.replace(/<.+>/, "").trim() || "Andy Cinquin";
+
         // Create the email record with full content
         const newEmailData = {
           resend_id: resendId,
           folder: "sent",
           from_email: senderEmail,
           from_name: senderName,
-          to_emails: (payload.data.to || []).map(to => {
+          to_emails: (payload.data.to || []).map((to) => {
             const match = to.match(/<(.+?)>/);
-            return { email: match?.[1] || to, name: to.replace(/<.+>/, "").trim() || undefined };
+            return {
+              email: match?.[1] || to,
+              name: to.replace(/<.+>/, "").trim() || undefined,
+            };
           }),
           cc_emails: [],
           bcc_emails: [],
@@ -225,7 +248,9 @@ export const webhookService = {
         };
 
         await pbAdmin.collection("emails").create(newEmailData);
-        console.info(`[Webhook] Created email from webhook for ${resendId} with full content`);
+        console.info(
+          `[Webhook] Created email from webhook for ${resendId} with full content`,
+        );
         return true;
       }
 
@@ -261,10 +286,14 @@ export const webhookService = {
     recipientEmail: string,
     subject: string,
     shouldCreateOrUpdate: boolean,
-  ): Promise<{ companyId: string | null; applicationId: string | null; isFollowUp: boolean }> {
+  ): Promise<{
+    companyId: string | null;
+    applicationId: string | null;
+    isFollowUp: boolean;
+  }> {
     const identifier = getEntityIdentifier(recipientEmail);
     const domain = extractDomain(recipientEmail);
-    
+
     if (!identifier) {
       return { companyId: null, applicationId: null, isFollowUp: false };
     }
@@ -286,14 +315,16 @@ export const webhookService = {
           // It's a domain
           companyName = identifier.split(".")[0];
         }
-        
+
         const newCompany = await pbAdmin.collection("companies").create({
           name: companyName.charAt(0).toUpperCase() + companyName.slice(1),
           domain: identifier,
           user: DEFAULT_USER_ID,
         });
         company = newCompany;
-        console.info(`[Webhook] Created company ${newCompany.id} for identifier ${identifier}`);
+        console.info(
+          `[Webhook] Created company ${newCompany.id} for identifier ${identifier}`,
+        );
       }
 
       if (!company) {
@@ -312,26 +343,32 @@ export const webhookService = {
         // Application exists → This is a FOLLOW-UP
         isFollowUp = true;
         const currentCount = application.follow_up_count || 0;
-        
+
         await pbAdmin.collection("applications").update(application.id, {
           follow_up_count: currentCount + 1,
           last_follow_up_at: new Date().toISOString(),
           last_activity_at: new Date().toISOString(),
         });
-        
-        console.info(`[Webhook] Follow-up #${currentCount + 1} for application ${application.id} (${domain})`);
+
+        console.info(
+          `[Webhook] Follow-up #${currentCount + 1} for application ${application.id} (${domain})`,
+        );
       } else if (!application && shouldCreateOrUpdate) {
         // No application → This is a FIRST CONTACT
         const newApplication = await pbAdmin.collection("applications").create({
           company: company.id,
-          position: subject.includes("Développeur") ? subject : "Candidature spontanée",
+          position: subject.includes("Développeur")
+            ? subject
+            : "Candidature spontanée",
           status: "sent",
           user: DEFAULT_USER_ID,
           first_contact_at: new Date().toISOString(),
           follow_up_count: 0,
         });
         application = newApplication;
-        console.info(`[Webhook] Created application ${newApplication.id} (first contact) for ${domain}`);
+        console.info(
+          `[Webhook] Created application ${newApplication.id} (first contact) for ${domain}`,
+        );
       }
 
       return {
@@ -340,7 +377,10 @@ export const webhookService = {
         isFollowUp,
       };
     } catch (error) {
-      console.error(`[Webhook] Error in findOrCreateCompanyAndApplication:`, error);
+      console.error(
+        `[Webhook] Error in findOrCreateCompanyAndApplication:`,
+        error,
+      );
       return { companyId: null, applicationId: null, isFollowUp: false };
     }
   },
@@ -426,9 +466,11 @@ export const webhookService = {
 
       // Use linked email's user or fall back to default user
       logData.user = linkedEmail?.user || DEFAULT_USER_ID;
-      
+
       const newLog = await pbAdmin.collection("email_logs").create(logData);
-      console.info(`[Webhook] Created email_log ${newLog.id} for user ${logData.user}`);
+      console.info(
+        `[Webhook] Created email_log ${newLog.id} for user ${logData.user}`,
+      );
       return newLog.id;
     } catch (error) {
       console.error(`[Webhook] Error upserting email_log:`, error);

@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/a11y/noSvgWithoutTitle: <zz> */
 "use client";
 
 import {
@@ -63,19 +64,22 @@ const COLUMNS: Column[] = [
     id: "clicked",
     title: "Clicked",
     statuses: ["clicked"],
-    color: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
+    color:
+      "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
   },
   {
     id: "waiting",
     title: "Waiting for Response",
     statuses: ["waiting"],
-    color: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20",
+    color:
+      "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20",
   },
   {
     id: "responded",
     title: "Response Received",
     statuses: ["responded", "offer"],
-    color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+    color:
+      "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
   },
   {
     id: "interview",

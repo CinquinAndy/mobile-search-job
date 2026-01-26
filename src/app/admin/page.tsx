@@ -179,7 +179,7 @@ export default function AdminPage() {
   const [cleanupBccResult, setCleanupBccResult] =
     React.useState<ActionResult | null>(null);
 
-  const [ mergeCompaniesLoading, setMergeCompaniesLoading] =
+  const [mergeCompaniesLoading, setMergeCompaniesLoading] =
     React.useState(false);
   const [mergeCompaniesResult, setMergeCompaniesResult] =
     React.useState<ActionResult | null>(null);

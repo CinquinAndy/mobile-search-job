@@ -24,6 +24,7 @@ export interface EmailSyncLog {
 }
 
 // Helper to convert PocketBase email to our Email type
+// biome-ignore lint/suspicious/noExplicitAny: PB Record Model typing
 function pbToEmail(record: any): Email {
   return {
     id: record.id,
@@ -38,6 +39,7 @@ function pbToEmail(record: any): Email {
     subject: record.subject,
     body: record.body_text || "",
     html: record.body_html,
+    // biome-ignore lint/suspicious/noExplicitAny: PB record status typing
     status: record.status as any,
     folder: record.folder as EmailFolder,
     threadId: record.thread_id,
@@ -97,7 +99,7 @@ export const emailPbService = {
    */
   async getEmails(userId: string, folder?: EmailFolder): Promise<Email[]> {
     try {
-      const pb = getPb();
+      const _pb = getPb();
       const filter = folder
         ? `user = "${userId}" && folder = "${folder}"`
         : `user = "${userId}"`;
@@ -162,7 +164,10 @@ export const emailPbService = {
 
       console.info(`[EmailPB] Content cached for email ${resendId}`);
 
+      console.info(`[EmailPB] Content cached for email ${resendId}`);
+
       return content;
+      // biome-ignore lint/suspicious/noExplicitAny: Axios error typing
     } catch (error: any) {
       if (error.response?.data) {
         console.error(
@@ -227,16 +232,21 @@ export const emailPbService = {
       if (existing) {
         // Update existing email with full data (webhook might have created minimal record)
         await pbAdmin.collection("emails").update(existing.id, data);
-        console.info(`[EmailPB] Updated existing email ${existing.id} for resend_id ${resendId}`);
+        console.info(
+          `[EmailPB] Updated existing email ${existing.id} for resend_id ${resendId}`,
+        );
       } else {
         // Create new
         await pbAdmin.collection("emails").create(data);
         console.info(`[EmailPB] Created email for resend_id ${resendId}`);
       }
+      // biome-ignore lint/suspicious/noExplicitAny: Error object typing
     } catch (error: any) {
       // Handle unique constraint violation (race condition fallback)
       if (error?.status === 400 && error?.response?.data?.resend_id) {
-        console.info(`[EmailPB] Email already exists (race condition), skipping: ${email.resendId || email.id}`);
+        console.info(
+          `[EmailPB] Email already exists (race condition), skipping: ${email.resendId || email.id}`,
+        );
         return;
       }
       console.error("Failed to save email:", error);
@@ -266,6 +276,7 @@ export const emailPbService = {
    */
   async updateEmail(id: string, updates: Partial<Email>): Promise<void> {
     try {
+      // biome-ignore lint/suspicious/noExplicitAny: Dynamic data object
       const data: any = {};
 
       if (updates.isRead !== undefined) data.is_read = updates.isRead;
@@ -347,7 +358,7 @@ export const emailPbService = {
         .getFirstListItem(`user = "${userId}"`, { sort: "-created" });
 
       return record as unknown as EmailSyncLog;
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   },
@@ -359,7 +370,7 @@ export const emailPbService = {
     try {
       const record = await getPb().collection("email_sync_logs").getOne(id);
       return record as unknown as EmailSyncLog;
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   },

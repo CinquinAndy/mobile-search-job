@@ -61,7 +61,11 @@ export const applicationsService = {
 
       // Count RESEND and MANUAL outbound emails for follow-ups
       const outboundLogs = logs
-        .filter((l) => (l.provider === "resend" || l.provider === "manual") && l.direction === "outbound")
+        .filter(
+          (l) =>
+            (l.provider === "resend" || l.provider === "manual") &&
+            l.direction === "outbound",
+        )
         .sort((a, b) => {
           const dateA = new Date(a.sent_at).getTime();
           const dateB = new Date(b.sent_at).getTime();
@@ -69,13 +73,13 @@ export const applicationsService = {
         });
 
       // Follow-ups = all emails after the first one
-      const followUpCount = outboundLogs.length > 1 
-        ? outboundLogs.length - 1 
-        : 0;
+      const followUpCount =
+        outboundLogs.length > 1 ? outboundLogs.length - 1 : 0;
 
-      const latestLogDate = outboundLogs.length > 0 
-        ? outboundLogs[outboundLogs.length - 1].sent_at 
-        : null;
+      const latestLogDate =
+        outboundLogs.length > 0
+          ? outboundLogs[outboundLogs.length - 1].sent_at
+          : null;
 
       return {
         id: record.id,
@@ -197,7 +201,8 @@ export const applicationsService = {
       (a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime(),
     )[0];
     // Fallback to user email if no recipient found (to pass email validation)
-    const recipient = lastLog?.recipient || pb.authStore.model?.email || "manual@tracker.local";
+    const recipient =
+      lastLog?.recipient || pb.authStore.model?.email || "manual@tracker.local";
     const now = new Date().toISOString();
 
     // 2. Create a manual email log to show in timeline and reset J+7
@@ -215,28 +220,36 @@ export const applicationsService = {
         external_id: `manual_${Date.now()}_${Math.random().toString(36).substring(7)}`,
         raw_payload: { manual: true },
       });
+      // biome-ignore lint/suspicious/noExplicitAny: Error object typing
     } catch (err: any) {
-      console.warn("[Applications] Manual provider rejected, retrying with 'resend'...", err.message);
-      
+      console.warn(
+        "[Applications] Manual provider rejected, retrying with 'resend'...",
+        err.message,
+      );
+
       // Fallback: ALWAYS try with 'resend' provider if 'manual' fails
       // (This covers Enum validation errors where provider MUST be 'resend' or 'gmail')
       try {
-         await pb.collection("email_logs").create({
-            application: id,
-            company: application.company,
-            user: userId,
-            provider: "resend",
-            direction: "outbound",
-            recipient: recipient,
-            subject: `[Manual] Follow-up #${(application.follow_up_count || 0) + 1}`,
-            status: "sent",
-            sent_at: now,
-            external_id: `manual_${Date.now()}_${Math.random().toString(36).substring(7)}`,
-            raw_payload: { manual: true, fallback: true },
-         });
+        await pb.collection("email_logs").create({
+          application: id,
+          company: application.company,
+          user: userId,
+          provider: "resend",
+          direction: "outbound",
+          recipient: recipient,
+          subject: `[Manual] Follow-up #${(application.follow_up_count || 0) + 1}`,
+          status: "sent",
+          sent_at: now,
+          external_id: `manual_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+          raw_payload: { manual: true, fallback: true },
+        });
+        // biome-ignore lint/suspicious/noExplicitAny: Error object typing
       } catch (retryErr: any) {
-         console.error("[Applications] Follow-up creation COMPLETELY failed:", retryErr.response?.data || retryErr.message);
-         throw retryErr;
+        console.error(
+          "[Applications] Follow-up creation COMPLETELY failed:",
+          retryErr.response?.data || retryErr.message,
+        );
+        throw retryErr;
       }
     }
 

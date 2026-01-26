@@ -7,7 +7,7 @@ import {
   Section,
   Text,
 } from "@react-email/components";
-import * as React from "react";
+import type * as React from "react";
 import { Signature } from "./components/Signature";
 
 interface GeneralTemplateProps {
@@ -23,6 +23,7 @@ export const GeneralTemplate = ({ content }: GeneralTemplateProps) => {
           {/* Email Content */}
           <Section style={contentContainer}>
             {content.split("\n").map((line, index) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: Static content rendering
               <Text key={index} style={paragraph}>
                 {line}
               </Text>
