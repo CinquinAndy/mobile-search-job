@@ -31,24 +31,43 @@ export function PushManager() {
       "PushManager" in window
     ) {
       // Register service worker
-      navigator.serviceWorker.register("/sw.js").then((reg) => {
-        setRegistration(reg);
-        reg.pushManager.getSubscription().then((sub) => {
-          if (sub) {
-            setSubscription(sub);
-            setIsSubscribed(true);
+      console.log("Registering service worker...");
+      navigator.serviceWorker.register("/sw.js")
+        .then(() => navigator.serviceWorker.ready)
+        .then((reg) => {
+          console.log("Service Worker ready:", reg);
+          setRegistration(reg);
+          reg.pushManager.getSubscription().then((sub) => {
+            console.log("Current subscription:", sub);
+            if (sub) {
+              setSubscription(sub);
+              setIsSubscribed(true);
+            }
+          });
+        }).catch(err => {
+          console.error("Service Worker registration failed:", err);
+          // Only alert if we're not in a silent failure state
+          if (typeof window !== "undefined" && !window.location.hostname.includes("localhost")) {
+            alert("SW Registration failed: " + err.message);
           }
         });
-      });
+    } else {
+      console.warn("Service Worker or PushManager not supported");
     }
   }, []);
 
   const subscribeToPush = async () => {
-    if (!registration) return;
+    console.log("subscribeToPush called, registration:", !!registration);
+    if (!registration) {
+      alert("No service worker registration found. Please wait a moment and try again.");
+      return;
+    }
 
     try {
       const publicVapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      console.log("VAPID Key present:", !!publicVapidKey);
       if (!publicVapidKey) {
+        alert("Configuration Error: Missing VAPID Public Key. Please contact support.");
         throw new Error("Missing NEXT_PUBLIC_VAPID_PUBLIC_KEY");
       }
 
@@ -70,22 +89,23 @@ export function PushManager() {
       });
 
       alert("Configured notifications!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to subscribe", error);
+      alert("Failed to subscribe: " + (error.message || "Unknown error"));
     }
   };
 
   const unsubscribeFromPush = async () => {
+    console.log("unsubscribeFromPush called");
     if (subscription) {
-      // We could also call an API to remove it from DB, but for now we just unsubscribe locally
-      // Ideally we should delete from DB
       try {
         await subscription.unsubscribe();
         setIsSubscribed(false);
         setSubscription(null);
         alert("Unsubscribed from notifications.");
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to unsubscribe", error);
+        alert("Failed to unsubscribe: " + (error.message || "Unknown error"));
       }
     }
   };

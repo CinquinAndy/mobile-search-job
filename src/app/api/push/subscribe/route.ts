@@ -51,11 +51,15 @@ export async function POST(request: Request) {
 
     // Let's try to just insert.
 
-    const pbAdmin = new PocketBase(process.env.PB_URL);
-    // Login as admin
-    // If I don't have password, I can't login as admin with just email?
-    // PB_SECRET in .env looks like a token, so I can set it.
-    pbAdmin.authStore.save(process.env.PB_SECRET || "", null);
+    const pbAdmin = (await import("@/services/pocketbase.server")).pbAdmin;
+    
+    if (!process.env.PB_URL || !process.env.PB_SECRET) {
+        console.error("Missing PB_URL or PB_SECRET in environment");
+        return NextResponse.json(
+            { error: "Server configuration error" },
+            { status: 500 }
+        );
+    }
 
     // Check if collection exists or just try to create.
     // Since we can't create collection via record create, we assume it exists.
