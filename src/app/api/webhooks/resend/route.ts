@@ -91,7 +91,7 @@ export async function POST(request: Request) {
       const notificationPayload = JSON.stringify({
         title: message,
         body: body,
-        url: "/applications",
+        url: result.emailId ? `/mail?emailId=${result.emailId}` : "/mail",
       });
 
       await Promise.all(

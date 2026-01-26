@@ -3,7 +3,8 @@
 import { Mail, RefreshCw, Search, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { parseAsStringLiteral, useQueryState } from "nuqs";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { EmailComposer } from "@/components/mail/email-composer";
 import { EmailDetail } from "@/components/mail/email-detail";
 import { EmailList } from "@/components/mail/email-list";
@@ -22,9 +23,16 @@ export default function MailPage() {
 
   const [emails, setEmails] = useState<Email[]>([]);
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
-  const [activeFolder, setActiveFolder] = useState<EmailFolder>(
-    EmailFolder.INBOX,
+
+  // Use nuqs for URL-based state
+  const [emailId, setEmailId] = useQueryState("emailId");
+  const [activeFolder, setActiveFolder] = useQueryState(
+    "folder",
+    parseAsStringLiteral(Object.values(EmailFolder)).withDefault(
+      EmailFolder.INBOX,
+    ),
   );
+
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [showComposer, setShowComposer] = useState(false);
@@ -136,8 +144,25 @@ export default function MailPage() {
         }
       }
     },
-    [loadEmails, handleAuthError],
+    [loadEmails, handleAuthError, setActiveFolder],
   );
+
+  // Sync selection with URL emailId
+  useEffect(() => {
+    if (!emailId || emails.length === 0) {
+      if (!emailId) setSelectedEmail(null);
+      return;
+    }
+
+    const email = emails.find((e) => e.id === emailId);
+    if (email) {
+      setSelectedEmail(email);
+      // Ensure we are in the correct folder for this email
+      if (email.folder !== activeFolder) {
+        setActiveFolder(email.folder);
+      }
+    }
+  }, [emailId, emails, activeFolder, setActiveFolder]);
 
   useEffect(() => {
     if (!user) return;
@@ -294,7 +319,7 @@ export default function MailPage() {
 
   // Handle email selection
   const handleSelectEmail = (email: Email) => {
-    setSelectedEmail(email);
+    setEmailId(email.id);
     setShowMobileList(false);
   };
 
@@ -409,7 +434,7 @@ export default function MailPage() {
             activeFolder={activeFolder}
             onFolderChange={(folder) => {
               setActiveFolder(folder);
-              setSelectedEmail(null);
+              setEmailId(null);
             }}
             onCompose={handleCompose}
             inboxCount={

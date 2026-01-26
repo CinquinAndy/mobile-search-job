@@ -78,6 +78,7 @@ export const webhookService = {
     success: boolean;
     action: string;
     details?: Record<string, unknown>;
+    emailId?: string;
   }> {
     const { type, data } = payload;
     const emailId = data.email_id;
@@ -87,7 +88,7 @@ export const webhookService = {
 
     try {
       // 1. Update email in emails collection (if it exists)
-      const emailUpdated = await this.updateEmailStatus(emailId, type, payload);
+      const createdEmailId = await this.updateEmailStatus(emailId, type, payload);
 
       // 2. Find or create company from recipient
       let companyId: string | null = null;
@@ -152,10 +153,10 @@ export const webhookService = {
       return {
         success: true,
         action: `processed_${type}`,
+        emailId: createdEmailId || undefined,
         details: {
           emailId,
           status,
-          emailUpdated,
           companyId,
           applicationId,
           isFollowUp,
@@ -175,7 +176,7 @@ export const webhookService = {
     resendId: string,
     eventType: ResendWebhookEventType,
     payload: ResendWebhookPayload,
-  ): Promise<boolean> {
+  ): Promise<string | null> {
     try {
       const status = WEBHOOK_TO_EMAIL_STATUS[eventType];
 
@@ -247,11 +248,11 @@ export const webhookService = {
           user: DEFAULT_USER_ID,
         };
 
-        await pbAdmin.collection("emails").create(newEmailData);
+        const record = await pbAdmin.collection("emails").create(newEmailData);
         console.info(
           `[Webhook] Created email from webhook for ${resendId} with full content`,
         );
-        return true;
+        return record.id;
       }
 
       // Email exists - update it
@@ -272,10 +273,10 @@ export const webhookService = {
 
       await pbAdmin.collection("emails").update(email.id, updates);
       console.info(`[Webhook] Updated email ${email.id} status to ${status}`);
-      return true;
+      return email.id;
     } catch (error) {
       console.error(`[Webhook] Failed to update email status:`, error);
-      return false;
+      return null;
     }
   },
   /**
