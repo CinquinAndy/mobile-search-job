@@ -18,7 +18,7 @@ export const Signature = () => {
           <Text style={name}>Andy Cinquin</Text>
           <Text style={title}>Full-Stack Freelance Developer</Text>
           <Text style={contactInfo}>
-            +33 6 21 58 26 84 | Haute-Goulaine, France
+            +33 6 21 58 26 84 | Sciez, France
           </Text>
           <Text style={contactInfo}>
             <Link href="mailto:contact@andy-cinquin.fr" style={linkGray}>
@@ -30,8 +30,8 @@ export const Signature = () => {
             </Link>
           </Text>
           <Text style={contactInfo}>
-            <Link href="https://bento.me/andy-cinquin" style={linkGray}>
-              Other Projects: https://bento.me/andy-cinquin
+            <Link href="https://avely.me/andy-cinquin" style={linkGray}>
+              Other Projects: https://avely.me/andy-cinquin
             </Link>
           </Text>
 
