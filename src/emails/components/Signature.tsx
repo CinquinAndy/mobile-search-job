@@ -21,8 +21,8 @@ export const Signature = () => {
             +33 6 21 58 26 84 | Sciez, France
           </Text>
           <Text style={contactInfo}>
-            <Link href="mailto:contact@andy-cinquin.fr" style={linkGray}>
-              contact@andy-cinquin.fr
+            <Link href="mailto:contact@andy-cinquin.com" style={linkGray}>
+              contact@andy-cinquin.com
             </Link>
             {" | "}
             <Link href="https://andy-cinquin.com/" style={linkGray}>
