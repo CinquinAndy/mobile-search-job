@@ -32,7 +32,8 @@ export function PushManager() {
     ) {
       // Register service worker
       console.log("Registering service worker...");
-      navigator.serviceWorker.register("/sw.js")
+      navigator.serviceWorker
+        .register("/sw.js")
         .then(() => navigator.serviceWorker.ready)
         .then((reg) => {
           console.log("Service Worker ready:", reg);
@@ -44,10 +45,14 @@ export function PushManager() {
               setIsSubscribed(true);
             }
           });
-        }).catch(err => {
+        })
+        .catch((err) => {
           console.error("Service Worker registration failed:", err);
           // Only alert if we're not in a silent failure state
-          if (typeof window !== "undefined" && !window.location.hostname.includes("localhost")) {
+          if (
+            typeof window !== "undefined" &&
+            !window.location.hostname.includes("localhost")
+          ) {
             alert("SW Registration failed: " + err.message);
           }
         });
@@ -59,7 +64,9 @@ export function PushManager() {
   const subscribeToPush = async () => {
     console.log("subscribeToPush called, registration:", !!registration);
     if (!registration) {
-      alert("No service worker registration found. Please wait a moment and try again.");
+      alert(
+        "No service worker registration found. Please wait a moment and try again.",
+      );
       return;
     }
 
@@ -67,7 +74,9 @@ export function PushManager() {
       const publicVapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
       console.log("VAPID Key present:", !!publicVapidKey);
       if (!publicVapidKey) {
-        alert("Configuration Error: Missing VAPID Public Key. Please contact support.");
+        alert(
+          "Configuration Error: Missing VAPID Public Key. Please contact support.",
+        );
         throw new Error("Missing NEXT_PUBLIC_VAPID_PUBLIC_KEY");
       }
 

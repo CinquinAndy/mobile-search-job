@@ -88,7 +88,11 @@ export const webhookService = {
 
     try {
       // 1. Update email in emails collection (if it exists)
-      const createdEmailId = await this.updateEmailStatus(emailId, type, payload);
+      const createdEmailId = await this.updateEmailStatus(
+        emailId,
+        type,
+        payload,
+      );
 
       // 2. Find or create company from recipient
       let companyId: string | null = null;
